@@ -1,0 +1,375 @@
+
+######## AlmaLinux-10-GenericCloud-10.2-20260817.0.x86_64.qcow2
+tree: 29112 entries (21854 files, 3619 symlinks, 3639 dirs, 663 MiB) -- IDENTICAL
+  ok  os-release ID                'almalinux'
+  ok  os-release VERSION_ID        '10.2'
+  ok  os-release ID_LIKE           'rhel centos fedora'
+  ok  os-release PRETTY_NAME       'AlmaLinux 10.2 (Lavender Lion)'
+  ok  /etc/shells                  ['/bin/sh', '/bin/bash', '/usr/bin/sh', '/usr/bin/bash']
+  ok  useradd SHELL                '/bin/bash'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs rpm itself: 380 vs 380 installed
+  ok  package names vs virt-inspector: 380 vs 380
+  ok  package versions vs virt-inspector: 380 equal, 0 differ
+  virt-inspector: distro=redhat-based version=10.2 package_format=rpm
+RESULT AlmaLinux-10-GenericCloud-10.2-20260817.0.x86_64.qcow2: all checks passed
+
+######## alpine-3.24-bios-cloudinit.qcow2
+tree: 5706 entries (4575 files, 449 symlinks, 682 dirs, 143 MiB) -- IDENTICAL
+  ok  os-release ID                'alpine'
+  ok  os-release VERSION_ID        '3.24.1'
+  ok  os-release ID_LIKE           ''
+  ok  os-release PRETTY_NAME       'Alpine Linux v3.24'
+  ok  /etc/shells                  ['/bin/sh', '/bin/ash']
+  ok  useradd SHELL                None
+  ok  bash                         None
+  ok  sudo                         None
+  ok  doas                         '/usr/bin/doas'
+  ok  /etc/sudoers.d               False
+  ok  /etc/doas.d                  True
+  ok  /etc/doas.conf               True
+  ok  systemd                      None
+  ok  openrc                       '/sbin/openrc'
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     '/usr/sbin/sshd.pam'
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/bin/busybox']
+  ok  /sbin/init chain             ['/sbin/init', '/bin/busybox']
+  --- apk database handed to the native check: 200 installed per the tool
+  ok  package names vs virt-inspector: 200 vs 200
+  ok  package versions vs virt-inspector: 200 equal, 0 differ
+  virt-inspector: distro=alpinelinux version=3.24 package_format=apk
+RESULT alpine-3.24-bios-cloudinit.qcow2: all checks passed
+
+######## alpine-3.24-uefi-tiny.qcow2
+tree: 3852 entries (3005 files, 403 symlinks, 444 dirs, 108 MiB) -- IDENTICAL
+  ok  os-release ID                'alpine'
+  ok  os-release VERSION_ID        '3.24.1'
+  ok  os-release ID_LIKE           ''
+  ok  os-release PRETTY_NAME       'Alpine Linux v3.24'
+  ok  /etc/shells                  ['/bin/sh', '/bin/ash']
+  ok  useradd SHELL                None
+  ok  bash                         None
+  ok  sudo                         None
+  ok  doas                         '/usr/bin/doas'
+  ok  /etc/sudoers.d               False
+  ok  /etc/doas.d                  True
+  ok  /etc/doas.conf               True
+  ok  systemd                      None
+  ok  openrc                       '/sbin/openrc'
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   None
+  ok  tiny-cloud                   '/usr/sbin/tiny-cloud'
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/bin/busybox']
+  ok  /sbin/init chain             ['/sbin/init', '/bin/busybox']
+  --- apk database handed to the native check: 79 installed per the tool
+  ok  package names vs virt-inspector: 79 vs 79
+  ok  package versions vs virt-inspector: 79 equal, 0 differ
+  virt-inspector: distro=alpinelinux version=3.24 package_format=apk
+RESULT alpine-3.24-uefi-tiny.qcow2: all checks passed
+
+######## arch-cloudimg.qcow2
+tree: 49965 entries (38462 files, 8440 symlinks, 3063 dirs, 1486 MiB) -- IDENTICAL
+  ok  os-release ID                'arch'
+  ok  os-release VERSION_ID        ''
+  ok  os-release ID_LIKE           ''
+  ok  os-release PRETTY_NAME       'Arch Linux'
+  ok  /etc/shells                  ['/bin/sh', '/bin/bash', '/bin/rbash', '/usr/bin/sh', '/usr/bin/bash', '/usr/bin/rbash', '/usr/bin/systemd-home-fallback-shell']
+  ok  useradd SHELL                '/usr/bin/bash'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  --- pacman database handed to the native check: 184 installed per the tool
+  ok  package names vs virt-inspector: 184 vs 184
+  ok  package versions vs virt-inspector: 184 equal, 0 differ
+  virt-inspector: distro=archlinux version=0.0 package_format=pacman
+RESULT arch-cloudimg.qcow2: all checks passed
+
+######## debian-13-genericcloud-amd64-20261001-2618.qcow2
+tree: 25260 entries (20632 files, 2252 symlinks, 2376 dirs, 523 MiB) -- IDENTICAL
+  ok  os-release ID                'debian'
+  ok  os-release VERSION_ID        '13'
+  ok  os-release ID_LIKE           ''
+  ok  os-release PRETTY_NAME       'Debian GNU/Linux 13 (trixie)'
+  ok  /etc/shells                  ['/bin/sh', '/usr/bin/sh', '/bin/bash', '/usr/bin/bash', '/bin/rbash', '/usr/bin/rbash', '/usr/bin/dash', '/usr/bin/screen']
+  ok  useradd SHELL                '/bin/sh'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/dash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs dpkg itself: 322 vs 322 installed
+  ok  package names vs virt-inspector: 322 vs 322
+  ok  package versions vs virt-inspector: 322 equal, 0 differ
+  virt-inspector: distro=debian version=13.7 package_format=deb
+RESULT debian-13-genericcloud-amd64-20261001-2618.qcow2: all checks passed
+
+######## fcos.qcow2
+tree: 37228 entries (23347 files, 7083 symlinks, 6798 dirs, 1735 MiB) -- IDENTICAL
+  ok  os-release ID                'fedora'
+  ok  os-release VERSION_ID        '44'
+  ok  os-release ID_LIKE           ''
+  ok  os-release PRETTY_NAME       'Fedora CoreOS 44.20260913.3.2'
+  ok  /etc/shells                  ['/bin/sh', '/bin/bash', '/usr/bin/sh', '/usr/bin/bash']
+  ok  useradd SHELL                '/bin/bash'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   None
+  ok  tiny-cloud                   None
+  ok  ignition                     '/usr/lib/dracut/modules.d/30ignition'
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs rpm itself: 477 vs 477 installed
+  --- virt-inspector does not recognise this image (no OS found); its package check is skipped
+RESULT fcos.qcow2: all checks passed
+
+######## Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2
+tree: 33316 entries (24022 files, 4381 symlinks, 4913 dirs, 982 MiB) -- IDENTICAL
+  ok  os-release ID                'fedora'
+  ok  os-release VERSION_ID        '44'
+  ok  os-release ID_LIKE           ''
+  ok  os-release PRETTY_NAME       'Fedora Linux 44 (Cloud Edition)'
+  ok  /etc/shells                  ['/bin/sh', '/bin/bash', '/usr/bin/sh', '/usr/bin/bash']
+  ok  useradd SHELL                '/bin/bash'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs rpm itself: 427 vs 427 installed
+  ok  package names vs virt-inspector: 427 vs 427
+  ok  package versions vs virt-inspector: 427 equal, 0 differ
+  virt-inspector: distro=fedora version=44.0 package_format=rpm
+RESULT Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2: all checks passed
+
+######## generic_alpine-3.24.1-x86_64-uefi-cloudinit-r0.qcow2
+tree: 6472 entries (5357 files, 429 symlinks, 686 dirs, 164 MiB) -- IDENTICAL
+  ok  os-release ID                'alpine'
+  ok  os-release VERSION_ID        '3.24.1'
+  ok  os-release ID_LIKE           ''
+  ok  os-release PRETTY_NAME       'Alpine Linux v3.24'
+  ok  /etc/shells                  ['/bin/sh', '/bin/ash']
+  ok  useradd SHELL                None
+  ok  bash                         None
+  ok  sudo                         None
+  ok  doas                         '/usr/bin/doas'
+  ok  /etc/sudoers.d               False
+  ok  /etc/doas.d                  True
+  ok  /etc/doas.conf               True
+  ok  systemd                      None
+  ok  openrc                       '/sbin/openrc'
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     '/usr/sbin/sshd.pam'
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/bin/busybox']
+  ok  /sbin/init chain             ['/sbin/init', '/bin/busybox']
+  --- apk database handed to the native check: 201 installed per the tool
+  ok  package names vs virt-inspector: 201 vs 201
+  ok  package versions vs virt-inspector: 201 equal, 0 differ
+  virt-inspector: distro=alpinelinux version=3.24 package_format=apk
+RESULT generic_alpine-3.24.1-x86_64-uefi-cloudinit-r0.qcow2: all checks passed
+
+######## opensuse-leap-16.qcow2
+tree: 27842 entries (22455 files, 1301 symlinks, 4086 dirs, 693 MiB) -- IDENTICAL
+  ok  os-release ID                'opensuse-leap'
+  ok  os-release VERSION_ID        '16.0'
+  ok  os-release ID_LIKE           'suse opensuse'
+  ok  os-release PRETTY_NAME       'openSUSE Leap 16.0'
+  ok  /etc/shells                  ['/bin/ash', '/bin/bash', '/bin/csh', '/bin/dash', '/bin/false', '/bin/ksh', '/bin/ksh93', '/bin/mksh', '/bin/pdksh', '/bin/sh', '/bin/tcsh', '/bin/true', '/bin/zsh', '/usr/bin/csh', '/usr/bin/dash', '/usr/bin/ksh', '/usr/bin/ksh93', '/usr/bin/mksh', '/usr/bin/passwd', '/usr/bin/pdksh', '/usr/bin/bash', '/usr/bin/tcsh', '/usr/bin/zsh', '/usr/bin/fish', '/usr/bin/scsh', '/usr/bin/rash', '/usr/bin/nu']
+  ok  useradd SHELL                None
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs rpm itself: 378 vs 378 installed
+  ok  package names vs virt-inspector: 373 vs 373
+  ok  package versions vs virt-inspector: 373 equal, 0 differ
+  virt-inspector: distro=opensuse version=16.0 package_format=rpm
+RESULT opensuse-leap-16.qcow2: all checks passed
+
+######## rhel-10.1-x86_64-kvm.qcow2
+tree: 47420 entries (36015 files, 5377 symlinks, 6028 dirs, 1551 MiB) -- IDENTICAL
+  ok  os-release ID                'rhel'
+  ok  os-release VERSION_ID        '10.1'
+  ok  os-release ID_LIKE           'centos fedora'
+  ok  os-release PRETTY_NAME       'Red Hat Enterprise Linux 10.1 (Coughlan)'
+  ok  /etc/shells                  ['/bin/sh', '/bin/bash', '/usr/bin/sh', '/usr/bin/bash']
+  ok  useradd SHELL                '/bin/bash'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs rpm itself: 548 vs 548 installed
+  ok  package names vs virt-inspector: 548 vs 548
+  ok  package versions vs virt-inspector: 548 equal, 0 differ
+  virt-inspector: distro=rhel version=10.1 package_format=rpm
+RESULT rhel-10.1-x86_64-kvm.qcow2: all checks passed
+
+######## rhel-9.7-x86_64-kvm.qcow2
+tree: 45890 entries (35211 files, 4808 symlinks, 5871 dirs, 1603 MiB) -- IDENTICAL
+  ok  os-release ID                'rhel'
+  ok  os-release VERSION_ID        '9.7'
+  ok  os-release ID_LIKE           'fedora'
+  ok  os-release PRETTY_NAME       'Red Hat Enterprise Linux 9.7 (Plow)'
+  ok  /etc/shells                  ['/bin/sh', '/bin/bash', '/usr/bin/sh', '/usr/bin/bash']
+  ok  useradd SHELL                '/bin/bash'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs rpm itself: 508 vs 508 installed
+  ok  package names vs virt-inspector: 508 vs 508
+  ok  package versions vs virt-inspector: 508 equal, 0 differ
+  virt-inspector: distro=rhel version=9.7 package_format=rpm
+RESULT rhel-9.7-x86_64-kvm.qcow2: all checks passed
+
+######## rocky-9.qcow2
+tree: 37473 entries (28941 files, 3431 symlinks, 5101 dirs, 882 MiB) -- IDENTICAL
+  ok  os-release ID                'rocky'
+  ok  os-release VERSION_ID        '9.8'
+  ok  os-release ID_LIKE           'rhel centos fedora'
+  ok  os-release PRETTY_NAME       'Rocky Linux 9.8 (Blue Onyx)'
+  ok  /etc/shells                  ['/bin/sh', '/bin/bash', '/usr/bin/sh', '/usr/bin/bash']
+  ok  useradd SHELL                '/bin/bash'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/bash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs rpm itself: 422 vs 422 installed
+  ok  package names vs virt-inspector: 422 vs 422
+  ok  package versions vs virt-inspector: 422 equal, 0 differ
+  virt-inspector: distro=rocky version=9.8 package_format=rpm
+RESULT rocky-9.qcow2: all checks passed
+
+######## ubuntu-24.04.qcow2
+tree: 85020 entries (69346 files, 6507 symlinks, 9167 dirs, 1444 MiB) -- IDENTICAL
+  ok  os-release ID                'ubuntu'
+  ok  os-release VERSION_ID        '24.04'
+  ok  os-release ID_LIKE           'debian'
+  ok  os-release PRETTY_NAME       'Ubuntu 24.04.5 LTS'
+  ok  /etc/shells                  ['/bin/sh', '/usr/bin/sh', '/bin/bash', '/usr/bin/bash', '/bin/rbash', '/usr/bin/rbash', '/usr/bin/dash', '/usr/bin/screen', '/usr/bin/tmux']
+  ok  useradd SHELL                '/bin/sh'
+  ok  bash                         '/bin/bash'
+  ok  sudo                         '/usr/bin/sudo'
+  ok  doas                         None
+  ok  /etc/sudoers.d               True
+  ok  /etc/doas.d                  False
+  ok  /etc/doas.conf               False
+  ok  systemd                      '/usr/lib/systemd/systemd'
+  ok  openrc                       None
+  ok  sshd                         '/usr/sbin/sshd'
+  ok  sshd.pam                     None
+  ok  cloud-init                   '/usr/bin/cloud-init'
+  ok  tiny-cloud                   None
+  ok  ignition                     None
+  ok  /bin/sh chain                ['/bin/sh', '/usr/bin/dash']
+  ok  /sbin/init chain             ['/sbin/init', '/usr/lib/systemd/systemd']
+  ok  packages vs dpkg itself: 664 vs 664 installed
+  ok  package names vs virt-inspector: 664 vs 664
+  ok  package versions vs virt-inspector: 664 equal, 0 differ
+  virt-inspector: distro=ubuntu version=24.4 package_format=deb
+RESULT ubuntu-24.04.qcow2: all checks passed

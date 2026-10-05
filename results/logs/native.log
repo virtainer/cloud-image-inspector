@@ -1,0 +1,5 @@
+ok  alpine-3.24-bios-cloudinit.qcow2                     apk info -v:  200   tool:  200
+ok  alpine-3.24-uefi-tiny.qcow2                          apk info -v:   79   tool:   79
+ok  arch-cloudimg.qcow2                                  pacman -Q:  184   tool:  184
+ok  generic_alpine-3.24.1-x86_64-uefi-cloudinit-r0.qcow2 apk info -v:  201   tool:  201
+4/4 images: tool package lists identical to the native package manager

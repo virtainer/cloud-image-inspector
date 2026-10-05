@@ -1,0 +1,15 @@
+PASS build
+PASS lint
+PASS vectors
+PASS fixtures
+PASS fuzz
+PASS kernel
+PASS real
+PASS config-facts
+PASS native
+PASS facts-table
+
+real	20m3.349s
+user	0m1.663s
+sys	0m1.831s
+exit=0

@@ -1,0 +1,9 @@
+# Build + verification toolchain: Rust 1.95 plus the filesystem tools used to make
+# synthetic fixtures (mkfs.*, qemu-img) and to obtain independent ground truth
+# (debugfs, xfs_db, btrfs restore, rpm).
+FROM docker.io/library/rust:1.95-trixie
+RUN rustup component add clippy rustfmt && apt-get update && apt-get install -y --no-install-recommends \
+      qemu-utils e2fsprogs xfsprogs btrfs-progs dosfstools fdisk gdisk \
+      zstd lzop python3 python3-lzo sqlite3 rpm xz-utils file \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work

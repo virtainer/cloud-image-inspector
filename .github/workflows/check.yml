@@ -1,0 +1,34 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      # Installs the toolchain pinned in rust-toolchain.toml.
+      - run: rustup toolchain install
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      # The image, vector and fixture suites need inputs that tools/verify-all.sh
+      # generates; without them those tests skip and the unit tests still run.
+      - run: cargo test --locked
+      - run: cargo build --release --locked
+      - name: No dependencies beyond the standard library
+        run: |
+          deps=$(cargo tree --locked --prefix none --edges normal | sort -u | wc -l)
+          [ "$deps" -eq 1 ] || { cargo tree --locked; exit 1; }

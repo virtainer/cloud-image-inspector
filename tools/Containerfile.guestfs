@@ -1,0 +1,8 @@
+# Independent oracle: libguestfs boots a real Linux kernel (KVM) that mounts the
+# image's filesystems, so its view of files is the kernel's, not ours.
+FROM docker.io/library/debian:trixie
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libguestfs-tools linux-image-amd64 qemu-system-x86 rpm python3 \
+    && rm -rf /var/lib/apt/lists/*
+ENV LIBGUESTFS_BACKEND=direct
+WORKDIR /work

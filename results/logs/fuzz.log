@@ -1,0 +1,20 @@
+   Compiling cloud-image-inspector v0.1.0 (/work)
+    Finished `release` profile [optimized] target(s) in 0.54s
+     Running tests/fuzz_images.rs (target/release/deps/fuzz_images-094d0f995d127e1e)
+
+running 1 test
+fixtures/out/fs/ext4-default.qcow2: 22 guest blocks read by a clean run, 40 qcow2-file blocks
+fixtures/out/fs/ext2-blockmap.qcow2: 21 guest blocks read by a clean run, 39 qcow2-file blocks
+fixtures/out/fs/ext4-inline.qcow2: 16 guest blocks read by a clean run, 34 qcow2-file blocks
+fixtures/out/fs/xfs-default.qcow2: 24 guest blocks read by a clean run, 42 qcow2-file blocks
+fixtures/out/fs/xfs-v4.qcow2: 22 guest blocks read by a clean run, 40 qcow2-file blocks
+fixtures/out/fs/btrfs-zstd.qcow2: 28 guest blocks read by a clean run, 45 qcow2-file blocks
+test corrupted_images_fail_cleanly has been running for over 60 seconds
+fixtures/out/fs/btrfs-node4k-zstd15.qcow2: 17 guest blocks read by a clean run, 34 qcow2-file blocks
+fixtures/out/fs/c-zstd.qcow2: 22 guest blocks read by a clean run, 23 qcow2-file blocks
+fixtures/out/fs/c-extl2.qcow2: 22 guest blocks read by a clean run, 52 qcow2-file blocks
+13500 corrupted images processed without a panic or hang
+test corrupted_images_fail_cleanly ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 129.84s
+

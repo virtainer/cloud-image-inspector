@@ -1,0 +1,17 @@
+[package]
+name = "cloud-image-inspector"
+version = "0.1.0"
+edition = "2021"
+description = "Read-only, userspace inspection of cloud disk images (qcow2/raw; GPT/MBR; ext4, XFS, btrfs)"
+license = "Apache-2.0"
+repository = "https://github.com/virtainer/cloud-image-inspector"
+publish = false
+
+# Deliberately no dependencies: every parser here reads hostile input, and each one
+# is small enough to own. Formats were implemented from their specifications.
+[dependencies]
+
+[profile.release]
+opt-level = 3
+debug = false
+panic = "unwind"

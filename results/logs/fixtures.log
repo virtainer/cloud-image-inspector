@@ -1,0 +1,66 @@
+built 18 filesystem variants: ext4-default ext4-inline ext2-blockmap ext3-1k ext4-nometa64 ext4-64k xfs-default xfs-v4 xfs-v4-noftype xfs-1k-dir8k xfs-inode2k btrfs-plain btrfs-zstd btrfs-lzo btrfs-zlib btrfs-node4k-zstd15 btrfs-subvol btrfs-holes
+ok   btrfs-holes.qcow2                btrfs (top level, id 5)      5095 entries (5031 files) identical, 11 facts ok
+ok   btrfs-lzo.qcow2                  btrfs (top level, id 5)      5095 entries (5031 files) identical, 11 facts ok
+ok   btrfs-node4k-zstd15.qcow2        btrfs (top level, id 5)      5095 entries (5031 files) identical, 11 facts ok
+ok   btrfs-plain.qcow2                btrfs (top level, id 5)      5095 entries (5031 files) identical, 11 facts ok
+ok   btrfs-subvol.qcow2               btrfs root (id 256)          5095 entries (5031 files) identical, 11 facts ok
+ok   btrfs-zlib.qcow2                 btrfs (top level, id 5)      5095 entries (5031 files) identical, 11 facts ok
+ok   btrfs-zstd.qcow2                 btrfs (top level, id 5)      5095 entries (5031 files) identical, 11 facts ok
+ok   c-cluster2m.qcow2                ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-cluster4k.qcow2                ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-deflate.qcow2                  ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-dos-logical.qcow2              ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-dos.qcow2                      ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-extl2.qcow2                    ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-gpt-4k.qcow2                   ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-notable-btrfs-zstd.qcow2       btrfs (top level, id 5)      5095 entries (5031 files) identical, 11 facts ok
+ok   c-notable-xfs-default.qcow2      xfs                          5095 entries (5031 files) identical, 11 facts ok
+ok   c-prealloc-meta.qcow2            ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-raw-gpt.img                    ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-v2-compat010.qcow2             ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-zeroflag.qcow2                 ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   c-zstd.qcow2                     ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   ext2-blockmap.qcow2              ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   ext3-1k.qcow2                    ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   ext4-64k.qcow2                   ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   ext4-default.qcow2               ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   ext4-inline.qcow2                ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   ext4-nometa64.qcow2              ext4                         5095 entries (5031 files) identical, 11 facts ok
+ok   xfs-1k-dir8k.qcow2               xfs                          5095 entries (5031 files) identical, 11 facts ok
+ok   xfs-default.qcow2                xfs                          5095 entries (5031 files) identical, 11 facts ok
+ok   xfs-inode2k.qcow2                xfs                          5095 entries (5031 files) identical, 11 facts ok
+ok   xfs-v4-noftype.qcow2             xfs                          5095 entries (5031 files) identical, 11 facts ok
+ok   xfs-v4.qcow2                     xfs                          5095 entries (5031 files) identical, 11 facts ok
+raw  btrfs-holes.qcow2                identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  btrfs-lzo.qcow2                  identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  btrfs-node4k-zstd15.qcow2        identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  btrfs-plain.qcow2                identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  btrfs-subvol.qcow2               identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  btrfs-zlib.qcow2                 identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  btrfs-zstd.qcow2                 identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  c-cluster2m.qcow2                identical to qemu-img (182 MiB; cluster_data,cluster_deflate,cluster_unallocated)
+raw  c-cluster4k.qcow2                identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  c-deflate.qcow2                  identical to qemu-img (182 MiB; cluster_data,cluster_deflate,cluster_unallocated)
+raw  c-dos-logical.qcow2              identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  c-dos.qcow2                      identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  c-extl2.qcow2                    identical to qemu-img (182 MiB; subcluster)
+raw  c-gpt-4k.qcow2                   identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  c-notable-btrfs-zstd.qcow2       identical to qemu-img (300 MiB; cluster_data,cluster_unallocated)
+raw  c-notable-xfs-default.qcow2      identical to qemu-img (300 MiB; cluster_data,cluster_unallocated)
+raw  c-prealloc-meta.qcow2            identical to qemu-img (182 MiB; cluster_data)
+raw  c-raw-gpt.img                    identical to qemu-img (182 MiB; raw file)
+raw  c-v2-compat010.qcow2             identical to qemu-img (182 MiB; cluster_data,cluster_deflate,cluster_unallocated)
+raw  c-zeroflag.qcow2                 identical to qemu-img (182 MiB; cluster_data,cluster_zero,cluster_unallocated)
+raw  c-zstd.qcow2                     identical to qemu-img (182 MiB; cluster_data,cluster_zstd,cluster_unallocated)
+raw  ext2-blockmap.qcow2              identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  ext3-1k.qcow2                    identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  ext4-64k.qcow2                   identical to qemu-img (621 MiB; cluster_data,cluster_unallocated)
+raw  ext4-default.qcow2               identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  ext4-inline.qcow2                identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  ext4-nometa64.qcow2              identical to qemu-img (182 MiB; cluster_data,cluster_unallocated)
+raw  xfs-1k-dir8k.qcow2               identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  xfs-default.qcow2                identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  xfs-inode2k.qcow2                identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  xfs-v4-noftype.qcow2             identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+raw  xfs-v4.qcow2                     identical to qemu-img (340 MiB; cluster_data,cluster_unallocated)
+32/32 fixture images verified (32 whole-disk raw comparisons identical)

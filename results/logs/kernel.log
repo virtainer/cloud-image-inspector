@@ -1,0 +1,9 @@
+built k-ext4.qcow2
+built k-xfs.qcow2
+built k-btrfs.qcow2
+ok   k-btrfs.qcow2: 7676 entries identical to the kernel's view
+     paths: btrfs_regular_zlib=3 btrfs_regular_lzo=3 btrfs_regular_zstd=3 btrfs_prealloc=1 btrfs_hole=4
+ok   k-ext4.qcow2: 7673 entries identical to the kernel's view
+     paths: ext4_extent_leaf_node=5096 ext4_extent_index_node=1 ext4_uninit_extent=1 ext4_block_symlink=3 ext4_htree_dir=1
+ok   k-xfs.qcow2: 7673 entries identical to the kernel's view
+     paths: xfs_fork_btree=2 xfs_dir_leaf_node_data=90 xfs_symlink_remote=2 xfs_unwritten_extent=1
