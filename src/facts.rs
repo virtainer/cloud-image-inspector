@@ -105,6 +105,16 @@ pub struct Facts {
     pub init_chain: Vec<String>,
     pub systemd: Option<String>,
     pub openrc: Option<String>,
+    /// `/etc/inittab` exists: an init that reads it (busybox init, sysvinit, OpenRC
+    /// booted by either) starts the serial getty from there.
+    pub inittab: bool,
+    /// `/sbin/getty` symlink chain (canonical paths); on busybox systems it ends in
+    /// `/bin/busybox`, whose getty takes different options from util-linux's.
+    pub getty_chain: Vec<String>,
+    /// util-linux `agetty`, which has `--autologin`.
+    pub agetty: Option<String>,
+    /// `login`, which a getty runs to start the session.
+    pub login: Option<String>,
     pub sshd: Option<String>,
     pub sshd_pam: Option<String>,
     pub sshd_use_pam: Option<String>,
@@ -598,6 +608,14 @@ pub fn collect(v: &Vfs) -> Facts {
     } else {
         "unknown".into()
     };
+
+    f.inittab = v.is_file("/etc/inittab");
+    f.getty_chain = v.link_chain("/sbin/getty");
+    if !v.exists("/sbin/getty") {
+        f.getty_chain.clear();
+    }
+    f.agetty = first_file(v, &["/sbin/agetty", "/usr/sbin/agetty", "/usr/bin/agetty"]);
+    f.login = first_file(v, &["/bin/login", "/usr/bin/login", "/usr/sbin/login"]);
 
     f.sshd = first_file(v, &["/usr/sbin/sshd", "/usr/bin/sshd", "/sbin/sshd"]);
     f.sshd_pam = first_file(v, &["/usr/sbin/sshd.pam"]);

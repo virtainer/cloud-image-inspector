@@ -173,6 +173,22 @@ fn text_facts(s: &mut String, f: &Facts) {
     );
     let _ = writeln!(
         s,
+        "console        /etc/inittab: {}   agetty: {}   login: {}",
+        f.inittab,
+        yes(&f.agetty),
+        yes(&f.login)
+    );
+    let _ = writeln!(
+        s,
+        "               /sbin/getty: {}",
+        if f.getty_chain.is_empty() {
+            "missing".into()
+        } else {
+            f.getty_chain.join(" -> ")
+        }
+    );
+    let _ = writeln!(
+        s,
         "sshd           sshd: {}   PAM build: {}",
         yes(&f.sshd),
         yes(&f.sshd_pam)
@@ -375,6 +391,15 @@ fn facts_json(f: &Facts, all_packages: bool) -> J {
                 ("sbin_init", J::strs(&f.init_chain)),
                 ("systemd", J::opt_str(&f.systemd)),
                 ("openrc", J::opt_str(&f.openrc)),
+            ]),
+        ),
+        (
+            "console",
+            J::obj(vec![
+                ("inittab", J::Bool(f.inittab)),
+                ("getty", J::strs(&f.getty_chain)),
+                ("agetty", J::opt_str(&f.agetty)),
+                ("login", J::opt_str(&f.login)),
             ]),
         ),
         (

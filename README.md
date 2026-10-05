@@ -39,6 +39,7 @@ packages       apk (201 installed, /lib/apk/db/installed)
 | Login shells | bash present, `/bin/sh` symlink chain (canonical paths), `/etc/shells`, `useradd` default `SHELL` (also `/usr/etc`) |
 | Privilege tool | `sudo`, `doas`, `/etc/sudoers.d`, `/etc/doas.d`, `/etc/doas.conf` |
 | Init system | `/sbin/init` chain; systemd, OpenRC, runit, busybox init |
+| Serial console login | `/etc/inittab`, the `/sbin/getty` symlink chain (busybox or util-linux), `agetty`, `login` |
 | sshd | `sshd`, the PAM build `sshd.pam`, effective `UsePAM` (first value wins, `Include` expanded; `/usr/etc` fallback) |
 | First-boot agent | cloud-init and its version (package DB, else Python metadata), `datasource_list`; tiny-cloud; Ignition |
 | Packages | apk (`/lib/apk/db/installed`), dpkg (`Status: … installed` only), pacman (`local/*/desc`, honouring `DBPath`), RPM (SQLite with WAL, and ndb): every installed package and version, including several of one name |
