@@ -1,10 +1,39 @@
 # cloud-image-inspector
 
-Read-only, userspace inspection of cloud disk images: what OS is inside, and the
-facts that decide how a first-boot configuration has to be written for it. Nothing
-is booted or mounted; the image is parsed directly. It never executes guest code,
-never asks the host kernel to parse guest filesystems, and has **no dependencies**
-beyond the Rust standard library.
+Inspect qcow2 and raw cloud images without booting or mounting them — a
+zero-dependency Rust CLI from [Virtainer](https://virtainer.io). It reports which
+OS is inside a disk image and the facts that decide how a first-boot configuration
+has to be written for it. The image is parsed directly, read-only and in
+userspace: it never executes guest code, never asks the host kernel to parse guest
+filesystems, and has **no dependencies** beyond the Rust standard library.
+
+## Use cases
+
+- Check which OS is inside a qcow2 or raw image without mounting it
+  (`/etc/os-release`: ID, VERSION_ID, ID_LIKE, PRETTY_NAME, …).
+- Read os-release, cloud-init, sshd and sudo facts from a disk image: is
+  cloud-init installed and which version, its `datasource_list`, whether sshd is
+  a PAM build and `UsePAM` is on, `sudo` or `doas`.
+- Decide how to write first-boot config for an image: cloud-init, tiny-cloud or
+  Ignition; bash or only `/bin/sh`; systemd, OpenRC, runit or busybox init; UEFI
+  or BIOS boot.
+- List the installed packages and versions in an image from its apk, dpkg,
+  pacman or RPM database.
+- List, read or extract files from an image's ext4, XFS or btrfs filesystem
+  without libguestfs and without mounting it.
+
+## Quick start
+
+```
+cargo install --locked --git https://github.com/virtainer/cloud-image-inspector
+cloud-image-inspector disk.qcow2           # human-readable report
+cloud-image-inspector --json disk.qcow2    # machine-readable report
+```
+
+All commands and options are under [Usage](#usage); to build in a container,
+see [Building](#building).
+
+Example report for the Alpine cloud image:
 
 ```
 $ cloud-image-inspector images/generic_alpine-3.24.1-x86_64-uefi-cloudinit-r0.qcow2
@@ -132,3 +161,11 @@ podman run --rm -v "$PWD":/work -w /work cii-dev cargo build --release
 ## License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
+
+## About Virtainer
+
+[Virtainer](https://virtainer.io) is a self-hosted virtualization platform for
+hardware you own: it runs full Linux VMs and Docker images as hardware-isolated
+machines. Virtainer Free runs on a single host; [Virtainer Pro](https://virtainer.io/pro),
+the multi-host edition for clusters, is in development. cloud-image-inspector is
+one of [Virtainer's open-source components](https://virtainer.io/open-source).
