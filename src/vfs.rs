@@ -4,6 +4,7 @@
 //! image root (never the host's), `..` never climbs above it, and the number of
 //! symlinks followed is capped (Linux uses 40).
 
+use std::borrow::Cow;
 use std::collections::VecDeque;
 
 use crate::error::{corrupt, limit, Result};
@@ -40,6 +41,11 @@ impl<'a> Vfs<'a> {
 
     /// Resolve `path`. `follow_last` decides whether a final symlink is followed.
     pub fn resolve(&self, path: &str, follow_last: bool) -> Result<Option<NodeId>> {
+        let path = if matches!(self.fs.type_name(), "ntfs" | "vfat") {
+            Cow::Owned(path.replace('\\', "/"))
+        } else {
+            Cow::Borrowed(path)
+        };
         let mut stack: Vec<NodeId> = vec![self.root];
         let mut todo: VecDeque<Vec<u8>> = split(path.as_bytes()).collect();
         let mut hops = 0;

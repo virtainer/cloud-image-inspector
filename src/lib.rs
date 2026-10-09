@@ -1,6 +1,6 @@
 //! Read-only, userspace inspection of cloud disk images.
 //!
-//! Layers: [`qcow2`] (or raw) → [`partition`] → [`fs`] (ext4, XFS, btrfs) →
+//! Layers: [`qcow2`] (or raw) → [`partition`] → [`fs`] (ext4, XFS, btrfs, FAT, NTFS) →
 //! [`vfs`] path resolution → [`facts`]. Every layer treats its input as hostile:
 //! reads are bounds-checked, sizes and depths are capped, and malformed data is an
 //! error value, not a panic.
@@ -19,3 +19,4 @@ pub mod registry;
 pub mod report;
 pub mod stats;
 pub mod vfs;
+pub mod windows;

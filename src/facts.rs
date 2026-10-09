@@ -7,6 +7,8 @@ use std::rc::Rc;
 use crate::error::Result;
 use crate::fs::btrfs::Btrfs;
 use crate::fs::ext4::Ext4;
+use crate::fs::fat::Fat;
+use crate::fs::ntfs::Ntfs;
 use crate::fs::xfs::Xfs;
 use crate::fs::{FileSystem, NodeId};
 use crate::io::{FileSource, ReadAt, Window};
@@ -14,6 +16,7 @@ use crate::partition::{self, FsType, PartKind, TableKind};
 use crate::pkgdb::{self, Packages};
 use crate::qcow2::{self, Qcow2};
 use crate::vfs::Vfs;
+use crate::windows::{self, WindowsFacts};
 
 /// Packages whose versions are reported by name (whichever exist in the image).
 pub const KEY_PACKAGES: &[&str] = &[
@@ -128,8 +131,27 @@ pub struct Facts {
     pub packages: Option<Packages>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum OsFamily {
+    Linux,
+    Windows,
+    #[default]
+    Unknown,
+}
+impl OsFamily {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Linux => "linux",
+            Self::Windows => "windows",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Report {
+    pub os_family: OsFamily,
+    pub windows: Option<WindowsFacts>,
     pub image: String,
     pub container: Container,
     pub table: String,
@@ -176,6 +198,8 @@ pub enum AnyFs {
     Ext4(Ext4),
     Xfs(Xfs),
     Btrfs(Btrfs),
+    Fat(Fat),
+    Ntfs(Ntfs),
 }
 
 impl AnyFs {
@@ -184,6 +208,8 @@ impl AnyFs {
             FsType::Ext => Ext4::open(dev).map(AnyFs::Ext4),
             FsType::Xfs => Xfs::open(dev).map(AnyFs::Xfs),
             FsType::Btrfs => Btrfs::open(dev).map(AnyFs::Btrfs),
+            FsType::Vfat => Fat::open(dev).map(AnyFs::Fat),
+            FsType::Ntfs => Ntfs::open(dev).map(AnyFs::Ntfs),
             _ => return None,
         })
     }
@@ -193,6 +219,8 @@ impl AnyFs {
             AnyFs::Ext4(f) => f,
             AnyFs::Xfs(f) => f,
             AnyFs::Btrfs(f) => f,
+            AnyFs::Fat(f) => f,
+            AnyFs::Ntfs(f) => f,
         }
     }
 
@@ -201,6 +229,8 @@ impl AnyFs {
             AnyFs::Ext4(f) => f.label.clone(),
             AnyFs::Xfs(f) => f.label.clone(),
             AnyFs::Btrfs(f) => f.label.clone(),
+            AnyFs::Fat(f) => f.label.clone(),
+            AnyFs::Ntfs(f) => f.label.clone(),
         }
     }
 }
@@ -297,6 +327,8 @@ pub fn inspect_disk(disk: Rc<dyn ReadAt>) -> Result<Report> {
         || (table.kind != TableKind::Gpt && table.mbr_boot_code);
     r.warnings.extend(table.warnings.iter().cloned());
 
+    let mut esp_ems = Vec::new();
+    let mut ambiguous = false;
     for p in &parts {
         let mut info = PartitionInfo {
             number: p.number,
@@ -330,7 +362,40 @@ pub fn inspect_disk(disk: Rc<dyn ReadAt>) -> Result<Report> {
                         r.warnings.push(format!("partition {}: ext4 journal needs recovery; recent changes may be missing", p.number));
                     }
                 }
-                if r.facts.is_none() {
+                if p.kind == PartKind::Esp {
+                    let mut warnings = Vec::new();
+                    esp_ems.push((
+                        windows::read_ems(&Vfs::new(fs.fs()), &mut warnings),
+                        warnings,
+                    ));
+                }
+                if matches!(&fs, AnyFs::Ntfs(_)) && windows::is_windows(&Vfs::new(fs.fs())) {
+                    if r.root.is_some() {
+                        r.warnings.push("multiple operating-system roots; family and root selection are ambiguous".into());
+                        ambiguous = true;
+                    } else {
+                        let dirty = if let AnyFs::Ntfs(n) = &fs {
+                            match n.dirty() {
+                                Ok(b) => Some(b),
+                                Err(e) => {
+                                    r.warnings.push(format!("Windows NTFS dirty flag: {e}"));
+                                    None
+                                }
+                            }
+                        } else {
+                            None
+                        };
+                        r.windows =
+                            Some(windows::collect(&Vfs::new(fs.fs()), dirty, &mut r.warnings));
+                        r.os_family = OsFamily::Windows;
+                        r.root = Some(RootFs {
+                            partition: Some(p.number),
+                            filesystem: "ntfs".into(),
+                            ..Default::default()
+                        });
+                    }
+                }
+                if r.root.is_none() || (r.windows.is_some() && !matches!(&fs, AnyFs::Ntfs(_))) {
                     for (sv, ostree, node) in root_candidates(&mut fs) {
                         if let (Some(id), AnyFs::Btrfs(b)) = (sv, &mut fs) {
                             b.set_root_subvolume(id);
@@ -339,6 +404,11 @@ pub fn inspect_disk(disk: Rc<dyn ReadAt>) -> Result<Report> {
                         let v = Vfs::with_root(f, node);
                         if !has_os_release(&v) {
                             continue;
+                        }
+                        if r.root.is_some() {
+                            ambiguous = true;
+                            r.warnings.push("multiple operating-system roots; family and root selection are ambiguous".into());
+                            break;
                         }
                         let subvolume = match (&fs, sv) {
                             (AnyFs::Btrfs(b), Some(id)) => Some(if id == 5 {
@@ -350,6 +420,7 @@ pub fn inspect_disk(disk: Rc<dyn ReadAt>) -> Result<Report> {
                         };
                         let f = fs.fs();
                         let v = Vfs::with_root(f, node);
+                        r.os_family = OsFamily::Linux;
                         r.facts = Some(collect(&v));
                         r.root = Some(RootFs {
                             partition: Some(p.number),
@@ -364,9 +435,30 @@ pub fn inspect_disk(disk: Rc<dyn ReadAt>) -> Result<Report> {
         }
         r.partitions.push(info);
     }
-    if r.facts.is_none() {
+    if ambiguous {
+        r.os_family = OsFamily::Unknown;
+        r.root = None;
+        r.windows = None;
+        r.facts = None;
+    }
+    if let Some(w) = &mut r.windows {
+        for (_, warnings) in &esp_ems {
+            r.warnings.extend(warnings.iter().cloned());
+        }
+        if r.boot.esp.len() == 1 && esp_ems.len() == 1 {
+            if let Some((bootems, enabled)) = esp_ems[0].0 {
+                w.bootems = bootems;
+                w.ems_enabled = enabled;
+            }
+        } else if r.boot.esp.len() > 1 {
+            r.warnings.push(
+                "Windows EMS: multiple EFI System Partitions; active BCD store is unknown".into(),
+            );
+        }
+    }
+    if r.root.is_none() && !ambiguous {
         r.warnings
-            .push("no partition holds a root filesystem with /etc/os-release".into());
+            .push("no partition holds a recognized Linux or Windows root filesystem".into());
     }
     Ok(r)
 }
@@ -699,8 +791,37 @@ pub fn with_view_of<T>(
             bootable_flag: false,
         });
     }
+    // Explicit subvolumes select a unique Btrfs filesystem, including data volumes.
+    // Automatic OS roots retain inspection's ambiguity checks before the callback.
+    let selected_partition = match partition {
+        Some(n) => n,
+        None if subvol.is_some() => {
+            let mut selected = None;
+            for p in &parts {
+                let dev = Window::new(disk.clone(), p.start, p.len)?;
+                if partition::probe(&dev) == FsType::Btrfs && selected.replace(p.number).is_some() {
+                    return crate::error::corrupt(
+                        "multiple Btrfs filesystems (use --partition N with --subvol)",
+                    );
+                }
+            }
+            selected.ok_or_else(|| {
+                crate::error::Error::Corrupt(
+                    "no selectable Btrfs filesystem (use --partition N)".into(),
+                )
+            })?
+        }
+        None => inspect_disk(disk.clone())?
+            .root
+            .and_then(|root| root.partition)
+            .ok_or_else(|| {
+                crate::error::Error::Corrupt(
+                    "no unambiguous root filesystem (use --partition N)".into(),
+                )
+            })?,
+    };
     for p in parts {
-        if partition.is_some_and(|n| n != p.number) {
+        if selected_partition != p.number {
             continue;
         }
         let dev: Rc<dyn ReadAt> = Rc::new(Window::new(disk.clone(), p.start, p.len)?);
@@ -728,7 +849,7 @@ pub fn with_view_of<T>(
                 b.set_root_subvolume(id);
             }
             let v = Vfs::with_root(fs.fs(), node);
-            if has_os_release(&v) {
+            if has_os_release(&v) || windows::is_windows(&v) {
                 return Ok(f(&v));
             }
         }

@@ -331,6 +331,7 @@ pub enum FsType {
     Xfs,
     Btrfs,
     Vfat,
+    Ntfs,
     Swap,
     LvmPv,
     Luks,
@@ -347,6 +348,7 @@ impl FsType {
             FsType::Xfs => "xfs",
             FsType::Btrfs => "btrfs",
             FsType::Vfat => "vfat",
+            FsType::Ntfs => "ntfs",
             FsType::Swap => "swap",
             FsType::LvmPv => "lvm2-pv",
             FsType::Luks => "luks",
@@ -387,6 +389,9 @@ pub fn probe(dev: &dyn ReadAt) -> FsType {
     }
     if at(4086, b"SWAPSPACE2") || at(4086, b"SWAP-SPACE") {
         return FsType::Swap;
+    }
+    if at(3, b"NTFS    ") && at(510, &[0x55, 0xAA]) {
+        return FsType::Ntfs;
     }
     if at(510, &[0x55, 0xAA]) && (at(0x36, b"FAT") || at(0x52, b"FAT32")) {
         return FsType::Vfat;
