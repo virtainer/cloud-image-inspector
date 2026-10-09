@@ -15,6 +15,7 @@ pub mod json;
 pub mod partition;
 pub mod pkgdb;
 pub mod qcow2;
+pub mod registry;
 pub mod report;
 pub mod stats;
 pub mod vfs;
