@@ -2,7 +2,7 @@
 name = "cloud-image-inspector"
 version = "0.1.0"
 edition = "2021"
-description = "Read-only, userspace inspection of cloud disk images (qcow2/raw; GPT/MBR; ext4, XFS, btrfs)"
+description = "Read-only, userspace inspection of cloud disk images (qcow2/raw; GPT/MBR; ext4, XFS, btrfs, FAT, NTFS)"
 license = "Apache-2.0"
 repository = "https://github.com/virtainer/cloud-image-inspector"
 publish = false

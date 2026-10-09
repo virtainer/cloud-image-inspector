@@ -18,7 +18,7 @@ usage:
   cloud-image-inspector export [--partition N] [--subvol ID] IMAGE PATH DEST
 
 IMAGE is qcow2 (v2/v3; zlib or zstd clusters) or raw. Filesystems: ext2/3/4, XFS,
-btrfs. Without --partition, file commands use the detected root filesystem.";
+btrfs, FAT12/16/32, NTFS. Without --partition, file commands use the detected root filesystem.";
 
 struct Opts {
     json: bool,

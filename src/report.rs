@@ -96,6 +96,9 @@ pub fn text(r: &Report) -> String {
     if let Some(f) = &r.facts {
         text_facts(&mut s, f);
     }
+    if let Some(w) = &r.windows {
+        text_windows(&mut s, w);
+    }
     for w in &r.warnings {
         let _ = writeln!(s, "warning        {w}");
     }
@@ -252,6 +255,11 @@ pub fn json(r: &Report, all_packages: bool) -> J {
         .unwrap_or(J::Null);
     J::obj(vec![
         ("image", J::str(&r.image)),
+        ("os_family", J::str(r.os_family.name())),
+        (
+            "windows",
+            r.windows.as_ref().map(|w| w.json()).unwrap_or(J::Null),
+        ),
         (
             "container",
             J::obj(vec![
@@ -430,4 +438,72 @@ fn facts_json(f: &Facts, all_packages: bool) -> J {
         ),
         ("packages", pkgs.unwrap_or(J::Null)),
     ])
+}
+
+fn text_windows(s: &mut String, w: &crate::windows::WindowsFacts) {
+    let boolean = |b: Option<bool>| match b {
+        Some(true) => "yes",
+        Some(false) => "no",
+        None => "unknown",
+    };
+    let string = |v: &Option<String>| v.clone().unwrap_or_else(|| "unknown".into());
+    let number = |n: Option<u32>| n.map(|n| n.to_string()).unwrap_or_else(|| "unknown".into());
+    let _ = writeln!(
+        s,
+        "os             {} (Windows, {})",
+        string(&w.product_name),
+        string(&w.arch)
+    );
+    let _ = writeln!(
+        s,
+        "windows        edition: {}   installation: {}",
+        string(&w.edition_id),
+        string(&w.installation_type)
+    );
+    let _ = writeln!(
+        s,
+        "               build: {}   UBR: {}",
+        number(w.build),
+        number(w.ubr)
+    );
+    for (name, d) in [
+        ("viostor", &w.viostor),
+        ("netkvm", &w.netkvm),
+        ("viosock", &w.viosock),
+        ("virtainer_agent", &w.virtainer_agent),
+    ] {
+        let _ = writeln!(
+            s,
+            "drivers        {name}: present: {}   Start: {}   file: {}",
+            boolean(d.present),
+            number(d.start),
+            boolean(d.file)
+        );
+    }
+    let _ = writeln!(
+        s,
+        "               agent version: {}",
+        string(&w.virtainer_agent.version)
+    );
+    let _ = writeln!(s, "sysprep        ImageState: {}", string(&w.image_state));
+    let _ = writeln!(
+        s,
+        "ems            bootems: {}   ems_enabled: {}",
+        boolean(w.bootems),
+        boolean(w.ems_enabled)
+    );
+    let _ = writeln!(
+        s,
+        "power          RTC universal: {}   hibernation: {}   Fast Startup: {}",
+        boolean(w.rtc_is_universal),
+        boolean(w.hibernation),
+        boolean(w.fast_startup)
+    );
+    let _ = writeln!(
+        s,
+        "dirty          SYSTEM: {}   SOFTWARE: {}   NTFS: {}",
+        boolean(w.system_hive_dirty),
+        boolean(w.software_hive_dirty),
+        boolean(w.ntfs_volume_dirty)
+    );
 }
