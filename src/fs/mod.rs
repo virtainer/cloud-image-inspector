@@ -3,12 +3,14 @@
 
 pub mod btrfs;
 pub mod ext4;
+pub mod fat;
 pub mod xfs;
 
 use crate::error::Result;
 
 /// A node in some filesystem. ext4 and XFS use `(0, inode)`; btrfs uses
-/// `(tree id, objectid)` because inode numbers are per subvolume.
+/// `(tree id, objectid)` because inode numbers are per subvolume. FAT uses
+/// directory-entry offsets, with a separate root marker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct NodeId(pub u64, pub u64);
 
