@@ -242,6 +242,10 @@ fn service(
                 "virtainer_agent",
                 "virtainer_guest_agent",
             ]
+        } else if name == "viosock" {
+            // virtio-win's viosock.inf registers the service as `VirtioSocket`; the driver
+            // file keeps the `viosock` name.
+            &["VirtioSocket", "viosock"]
         } else {
             &[name]
         };
@@ -254,7 +258,10 @@ fn service(
             }
         }
         if found.len() > 1 {
-            warnings.push("Windows agent: multiple service aliases; state is unknown".into());
+            let what = if agent { "Windows agent" } else { name };
+            warnings.push(format!(
+                "{what}: multiple service aliases; state is unknown"
+            ));
             return None;
         }
         d.present = Some(!found.is_empty());

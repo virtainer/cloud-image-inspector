@@ -671,7 +671,7 @@ pub fn windows_tree(dirty: bool, agent: bool) -> Tree {
     let mut system = HiveBuilder::default();
     system.dw("Select", "Current", 2);
     system.dw("ControlSet001\\Services\\viostor", "Start", 3);
-    for (name, start) in [("viostor", 0), ("netkvm", 3), ("viosock", 3)] {
+    for (name, start) in [("viostor", 0), ("netkvm", 3), ("VirtioSocket", 3)] {
         system.dw(&format!("ControlSet002\\Services\\{name}"), "Start", start);
     }
     system.dw(
