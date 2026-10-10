@@ -116,7 +116,15 @@ Windows field in the table above; Linux `facts` is null. A Linux report keeps it
 existing `facts` and has `windows: null`. Unrecognized or ambiguous guest roots
 have `os_family: "unknown"`. Windows values that cannot be read or interpreted
 are **null**, including missing registry settings: OS defaults are not assumed.
-Confirmed missing service keys or files are `false`.
+Confirmed missing service keys or files are `false`. Registry lookup errors
+leave the affected facts unknown (`None` in the library, `null` in JSON and
+`unknown` in text), while readable facts from other keys and hives remain
+available. Warnings identify failed lookups.
+
+Registry lookups follow persistent key paths without indexing every cell in
+SOFTWARE or SYSTEM. Stale volatile-subkey counts and pointers are ignored:
+volatile subkeys are memory-only. Per-lookup limits and their rationale are
+listed in [VERIFICATION.md](VERIFICATION.md#registry-lookup-limits).
 
 SYSTEM service and power settings use only `Select\Current`'s ControlSet.
 `viostor`, `netkvm` and `viosock` use their service `ImagePath`, or their explicit
@@ -208,7 +216,7 @@ confirmed, every package list identical to the distribution's own package manage
   (on the qcow2 file and on the guest disk, aimed at the blocks a clean run reads)
   and corrupted compressed streams must produce errors, never panics or hangs.
 
-Windows and file-command coverage is self-contained in `tests/windows.rs`: 33
+Windows and file-command coverage is self-contained in `tests/windows.rs`: 39
 tests and 1,000 corrupted synthetic FAT/NTFS/regf/PE inputs. One additional Windows test requires
 a local image and is ignored by default. No real Windows image was verified in
 this checkout.

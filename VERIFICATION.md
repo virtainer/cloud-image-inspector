@@ -230,15 +230,15 @@ text/JSON inspection, an NTFS file read, and an explicit FAT ESP listing.
 | FAT12/16/32 | real cluster-count thresholds, long-name sequences/checksums, nested EFI paths, empty and multi-cluster files, range reads, cycles and invalid geometry |
 | NTFS | resident and non-resident files, split DATA attributes, non-resident attribute lists, fragmented MFT bootstrap, signed negative runs, sparse runs and uninitialized zeros, allocation indexes/fixups/bitmap, index cycles and short corrupt child entries, stale references and `$UpCase` Unicode lookup |
 | Unsupported NTFS features | compressed, encrypted and reparse-point data fail explicitly rather than being returned as file contents |
-| Registry | all four subkey-list forms, case-insensitive ASCII keys/values, inline and external data, 35 KB big data across bins, every supported value type, dirty sequence numbers, invalid/free cell references, checksums, cycles, bad UTF-16 and allocation/count limits |
+| Registry | all four subkey-list forms, case-insensitive ASCII keys/values, inline and external data, 35 KB big data across bins, every supported value type, dirty sequence numbers, invalid/free/interior cell references, checksums, cycles, bad UTF-16, lookup limits, more than one million cells in a generated SOFTWARE hive, 70,000 sibling keys and stale volatile metadata |
 | Windows facts | every contract field in a complete NTFS + FAT ESP report, Select\Current selecting ControlSet002 instead of a conflicting ControlSet001, agent PE version, ARM64 machine type, dirty volume/hive markers, missing vs unreadable files and settings, unmappable service paths, multiple roots/ESPs |
 | BCD | bootmgr `16000020`, default-object `23000003`, OS-loader `260000b0`, typed GUID elements, inherited settings including shared ancestors, cycles, dirty store and preservation of readable bootems when the loader is corrupt |
 | Corruption corpus | 250 deterministic mutations/truncations each of FAT12, NTFS, regf BCD and PE fixtures: 1,000 cases through parser/probe/report paths; no panic; a separate worker deadline bounds the entire test to 45 seconds |
 
-Result: **33 Windows/file-command tests passed**, with **1 local-image test ignored**.
-The complete Cargo run reports **44 passed, 1 ignored**. Four pre-existing
+Result: **39 Windows/file-command tests passed**, with **1 local-image test ignored**.
+The complete Cargo run reports **50 passed, 1 ignored**. Four pre-existing
 integration tests return early because compressor vectors, Linux filesystem
-fixtures and SQLite fixtures are absent; the other 40 tests execute their
+fixtures and SQLite fixtures are absent; the other 46 tests execute their
 checks. The historical real-image/kernel/vector verification above was **not
 rerun**. There are still no Cargo dependencies.
 
@@ -269,13 +269,54 @@ rerun**. There are still no Cargo dependencies.
 
 Parser budgets include: 131,072 FAT chain clusters, 64 MiB of directory data and
 100,000 directory entries; 64 KiB NTFS records, 1,024 attributes, 65,536 runs,
-4 MiB attribute lists, 8,192 index nodes and depth 32; 256 MiB hives, one million
-cells, 65,536 key/value-list items, 16 MiB values and depth 32 for registry
-indexes; PE resources bounded to 16 MiB, 1,024 directory nodes, depth 3; BCD
+4 MiB attribute lists, 8,192 index nodes and depth 32; registry limits are
+listed below; PE resources bounded to 16 MiB, 1,024 directory nodes, depth 3; BCD
 inheritance bounded to depth 16 and 256 visits. Whole-file and range limits
 continue to apply. Compressed/encrypted NTFS streams, reparse points (including
 WOF), inaccessible MFT bootstrap extensions and unsupported FAT codepages/case
 folding produce errors.
+
+### Registry lookup limits
+
+Opening a hive validates its base block and bin headers, then the root cell. It
+builds no hive-wide cell index and imposes no limit on the total cell count.
+Lookups follow only persistent path components and enumerate their immediate
+subkey lists; they never descend into unrelated subtrees. Volatile-subkey counts
+and pointers are ignored even when non-zero or invalid, because volatile keys
+are not stored in the file.
+
+| Bound | Limit | Rationale |
+|---|---|---|
+| Hive bytes, including the base block | 256 MiB | Retains the existing whole-file allocation cap and headroom for stock Server 2019/2022/2025 hives in the tens to hundreds of MiB; total cell count no longer consumes a lookup budget. |
+| Bin headers at open | At most 65,535 | Every bin occupies at least 4 KiB, within the hive size cap. Only headers are indexed. |
+| Path components | 128 | The product, sysprep, selected ControlSet service and power paths use fewer than ten components. |
+| Persistent subkeys per key | 131,072 | Allows large SOFTWARE registration lists and ample margin over ordinary SYSTEM service lists; indirect indexes support multiple leaves. |
+| Subkey entries visited per lookup | 1,048,576 | Bounds cumulative sibling work along a path, independently of unrelated branches. |
+| Index cells visited per lookup | 8,192 | Allows thousands of leaf lists while bounding corrupt index graphs. Repeated index references and cycles are rejected. |
+| Index nesting depth | 32 | Allows indirect list nesting with margin while bounding recursion. |
+| Value records per selected key | 65,536 | Far above the handful of product, service and power values required; only the requested value's data is decoded. |
+| Requested value data | 16 MiB | Far above the strings and integers needed for Windows facts; big-data segments remain count/range checked. |
+| MULTI_SZ strings | 65,536 | Bounds allocation of decoded list items. |
+| Newly scanned cell headers per lookup | 4,194,304 | Allows millions of cells within referenced bins while bounding hostile dense bins; unrelated bins consume no cell work. |
+
+A referenced cell must be aligned, allocated and an actual cell boundary inside
+its bin. The reader scans only that bin's prefix through the requested cell,
+validating each encountered cell size. It caches allocated boundaries in a
+bitmap (one bit per eight-byte slot, at most 4 MiB for a 256 MiB hive), so later
+lookups do not repeat that scan. A malformed cell in an untouched bin or beyond
+a referenced prefix does not invalidate independent facts. Base-block or bin
+header corruption still prevents opening the hive. Key parents, duplicate names,
+path cycles, list lengths, free cells and references into cell interiors remain
+checked.
+
+Generated regressions cover a SOFTWARE-shaped hive larger than 48 MiB with
+262,144 component keys and more than one million cells, a 70,000-service
+indirect list, non-zero volatile counts with invalid pointers, oversized lists,
+cyclic references and a dense bin that exceeds the lookup scan budget. A report
+regression corrupts individual product and service values and checks that other
+facts survive, unreadable facts remain `None`/JSON `null`/text `unknown`, and
+confirmed missing services remain `false`/text `no`. These are synthetic checks;
+no local Server 2019/2022/2025 image was available for this run.
 
 ### Local-only Windows image check
 

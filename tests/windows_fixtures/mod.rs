@@ -255,6 +255,7 @@ impl HiveBuilder {
         p32(&mut nk, 16, parent);
         p16(&mut nk, 72, name.len() as u16);
         nk[76..].copy_from_slice(name.as_bytes());
+        let slot = self.cells.len();
         let off = self.cell(nk.clone());
         let mut children = Vec::new();
         for (name, child) in key.children {
@@ -271,20 +272,27 @@ impl HiveBuilder {
             } else {
                 self.index
             };
-            let mut index = vec![0; 4 + children.len() * stride];
-            index[..2].copy_from_slice(&sig);
-            p16(&mut index, 2, children.len() as u16);
-            for (i, c) in children.iter().enumerate() {
-                p32(&mut index, 4 + i * stride, *c);
+            let mut lists = Vec::new();
+            for chunk in children.chunks(1024) {
+                let mut index = vec![0; 4 + chunk.len() * stride];
+                index[..2].copy_from_slice(&sig);
+                p16(&mut index, 2, chunk.len() as u16);
+                for (i, c) in chunk.iter().enumerate() {
+                    p32(&mut index, 4 + i * stride, *c);
+                }
+                lists.push(self.cell(index));
             }
-            let mut list = self.cell(index);
-            if self.index == *b"ri" {
-                let mut ri = vec![0; 8];
+            let list = if lists.len() > 1 || self.index == *b"ri" {
+                let mut ri = vec![0; 4 + lists.len() * 4];
                 ri[..2].copy_from_slice(b"ri");
-                p16(&mut ri, 2, 1);
-                p32(&mut ri, 4, list);
-                list = self.cell(ri);
-            }
+                p16(&mut ri, 2, lists.len() as u16);
+                for (i, off) in lists.iter().enumerate() {
+                    p32(&mut ri, 4 + i * 4, *off);
+                }
+                self.cell(ri)
+            } else {
+                lists[0]
+            };
             p32(&mut nk, 20, children.len() as u32);
             p32(&mut nk, 28, list);
         }
@@ -328,7 +336,7 @@ impl HiveBuilder {
             p32(&mut nk, 36, values.len() as u32);
             p32(&mut nk, 40, self.cell(list));
         }
-        self.cells.iter_mut().find(|(o, _)| *o == off).unwrap().1 = nk;
+        self.cells[slot].1 = nk;
         off
     }
     pub fn finish(mut self, dirty: bool) -> Vec<u8> {

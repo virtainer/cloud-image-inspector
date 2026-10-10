@@ -109,6 +109,268 @@ fn registry_rejects_invalid_cells_checksums_free_references_and_cycles() {
     assert!(h.key("A\\B").is_err());
 }
 #[test]
+fn registry_large_software_hive_looks_up_facts_without_walking_unrelated_trees() {
+    let mut builder = HiveBuilder::default();
+    let cv = "Microsoft\\Windows NT\\CurrentVersion";
+    builder.sz(cv, "ProductName", "Windows Server 2022 Datacenter");
+    builder.sz(cv, "EditionID", "ServerDatacenter");
+    builder.sz(cv, "CurrentBuildNumber", "20348");
+    builder.sz(
+        "Microsoft\\Windows\\CurrentVersion\\Setup\\State",
+        "ImageState",
+        "IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE",
+    );
+    // Component registrations provide hundreds of thousands of keys and more
+    // than a million cells, spread across ordinary small bins and short lists.
+    for vendor in 0..512 {
+        for component in 0..512 {
+            let path = format!("Classes\\Vendor{vendor:04}\\Component{component:04}");
+            builder.dw(&path, "Version", 1);
+            builder.dw(&path, "Flags", 0);
+        }
+    }
+    let mut bytes = builder.finish(false);
+    assert!(bytes.len() > 48 << 20);
+    let mut cells = 0;
+    let mut bin = 4096;
+    while bin < bytes.len() {
+        let size = u32::from_le_bytes(bytes[bin + 8..bin + 12].try_into().unwrap()) as usize;
+        let mut pos = bin + 32;
+        while pos < bin + size {
+            cells += 1;
+            let len = i32::from_le_bytes(bytes[pos..pos + 4].try_into().unwrap());
+            pos += len.unsigned_abs() as usize;
+        }
+        bin += size;
+    }
+    assert!(cells > 1_000_000);
+    let hive = Hive::open(bytes.clone()).unwrap();
+    assert_eq!(
+        hive.value(cv, "ProductName").unwrap(),
+        Some(Value::String("Windows Server 2022 Datacenter".into()))
+    );
+    assert_eq!(
+        hive.value(cv, "EditionID").unwrap(),
+        Some(Value::String("ServerDatacenter".into()))
+    );
+    assert_eq!(
+        hive.value(cv, "CurrentBuildNumber").unwrap(),
+        Some(Value::String("20348".into()))
+    );
+    assert_eq!(
+        hive.value("Classes\\Vendor0511\\Component0511", "Version")
+            .unwrap(),
+        Some(Value::Dword(1))
+    );
+    let unrelated = hive
+        .key("Classes\\Vendor0000\\Component0000")
+        .unwrap()
+        .unwrap();
+    drop(hive);
+    // An invalid cell in an unrelated registration must not hide OS facts,
+    // and must still fail explicitly when that registration is queried.
+    p32(&mut bytes, 4096 + unrelated as usize, 0);
+    let hive = Hive::open(bytes).unwrap();
+    assert!(hive
+        .value("Classes\\Vendor0000\\Component0000", "Version")
+        .is_err());
+    assert_eq!(
+        hive.value(cv, "CurrentBuildNumber").unwrap(),
+        Some(Value::String("20348".into()))
+    );
+    assert_eq!(
+        hive.value(
+            "Microsoft\\Windows\\CurrentVersion\\Setup\\State",
+            "ImageState"
+        )
+        .unwrap(),
+        Some(Value::String(
+            "IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE".into()
+        ))
+    );
+}
+
+#[test]
+fn registry_ignores_stale_volatile_counts_and_pointers_in_saved_hives() {
+    let mut tree = windows_tree(false, false);
+    for name in ["SYSTEM", "SOFTWARE"] {
+        let mut bytes = tree.children["Windows"].children["System32"].children["config"].children
+            [name]
+            .data
+            .clone()
+            .unwrap();
+        let hive = Hive::open(bytes.clone()).unwrap();
+        let root = hive.key("").unwrap().unwrap();
+        p32(&mut bytes, 4096 + root as usize + 4 + 24, 1);
+        p32(&mut bytes, 4096 + root as usize + 4 + 32, u32::MAX);
+        tree.insert(&format!("Windows/System32/config/{name}"), bytes);
+    }
+    let r = inspect_disk(dev(ntfs(&tree))).unwrap();
+    let w = r.windows.as_ref().unwrap();
+    assert_eq!(
+        w.product_name.as_deref(),
+        Some("Windows Server 2022 Datacenter")
+    );
+    assert_eq!(w.build, Some(20348));
+    assert_eq!(w.viostor.present, Some(true));
+    assert_eq!(w.viostor.start, Some(0));
+    assert_eq!(w.viostor.file, Some(true));
+    assert_eq!(w.virtainer_agent.present, Some(false));
+    assert!(r.warnings.is_empty());
+    assert!(report::json(&r, false)
+        .render()
+        .contains("\"build\": 20348"));
+    assert!(report::text(&r).contains("build: 20348"));
+    // No persistent children: even maximal stale metadata is ignored.
+    let mut bytes = HiveBuilder::default().finish(false);
+    p32(&mut bytes, 4096 + 32 + 4 + 24, u32::MAX);
+    p32(&mut bytes, 4096 + 32 + 4 + 32, 33);
+    assert_eq!(Hive::open(bytes).unwrap().key("missing").unwrap(), None);
+}
+
+#[test]
+fn registry_bounds_subkey_value_and_index_lists_per_lookup() {
+    let mut builder = HiveBuilder::default();
+    builder.dw("A", "Value", 1);
+    let clean = builder.finish(false);
+    let hive = Hive::open(clean.clone()).unwrap();
+    let root = hive.key("").unwrap().unwrap();
+    let key = hive.key("A").unwrap().unwrap();
+    for (offset, count) in [(root as usize + 20, 131073), (key as usize + 36, 65537)] {
+        let mut bytes = clean.clone();
+        p32(&mut bytes, 4100 + offset, count);
+        let hive = Hive::open(bytes).unwrap();
+        assert!(matches!(
+            hive.value("A", "Value"),
+            Err(cloud_image_inspector::error::Error::Limit(_))
+        ));
+    }
+    // A declared index length larger than its cell must fail before traversal.
+    let mut bytes = clean.clone();
+    let list = u32::from_le_bytes(
+        bytes[4100 + root as usize + 28..4100 + root as usize + 32]
+            .try_into()
+            .unwrap(),
+    );
+    p16(&mut bytes, 4100 + list as usize + 2, u16::MAX);
+    assert!(Hive::open(bytes).unwrap().key("A").is_err());
+    // A key that lists itself cannot turn a cyclic path into a valid lookup.
+    let mut bytes = clean.clone();
+    p32(&mut bytes, 4100 + root as usize + 16, root);
+    p32(&mut bytes, 4100 + list as usize + 4, root);
+    assert!(Hive::open(bytes).unwrap().key("ROOT").is_err());
+    // Free cells cannot become valid key references.
+    let mut bytes = clean.clone();
+    let root_size = i32::from_le_bytes(
+        bytes[4096 + root as usize..4100 + root as usize]
+            .try_into()
+            .unwrap(),
+    );
+    p32(&mut bytes, 4096 + root as usize, root_size.unsigned_abs());
+    assert!(Hive::open(bytes).is_err());
+    // Even aligned, convincing nk bytes inside a data cell are not a cell.
+    let mut builder = HiveBuilder::default();
+    let mut payload = vec![0; 128];
+    payload[..4].copy_from_slice(b"fake");
+    p32(&mut payload, 4, (-88i32) as u32);
+    payload[8..10].copy_from_slice(b"nk");
+    builder.set("A", "Payload", 3, payload);
+    let mut bytes = builder.finish(false);
+    let pos = bytes.windows(4).position(|w| w == b"fake").unwrap() + 4;
+    p32(&mut bytes, 36, (pos - 4096) as u32);
+    checksum(&mut bytes);
+    assert!(Hive::open(bytes).is_err());
+}
+
+#[test]
+fn registry_large_subkey_lists_use_bounded_indirect_indexes() {
+    let mut builder = HiveBuilder::default();
+    for n in 0..70000 {
+        builder.dw(&format!("Services\\Service{n:05}"), "Start", 3);
+    }
+    let hive = Hive::open(builder.finish(false)).unwrap();
+    assert_eq!(
+        hive.value("Services\\Service69999", "Start").unwrap(),
+        Some(Value::Dword(3))
+    );
+    assert_eq!(hive.key("Services\\missing").unwrap(), None);
+}
+
+#[test]
+fn registry_lookup_cell_scan_budget_rejects_a_dense_bin() {
+    let mut bytes = HiveBuilder::default().finish(false);
+    let root = bytes[4128..4216].to_vec();
+    let size = (36 << 20) as usize;
+    bytes.resize(4096 + size, 0);
+    p32(&mut bytes, 40, size as u32);
+    p32(&mut bytes, 4104, size as u32);
+    let root_offset = size - root.len();
+    p32(&mut bytes, 36, root_offset as u32);
+    for pos in (4128..4096 + root_offset).step_by(8) {
+        p32(&mut bytes, pos, 8);
+    }
+    bytes[4096 + root_offset..].copy_from_slice(&root);
+    checksum(&mut bytes);
+    assert!(matches!(
+        Hive::open(bytes),
+        Err(cloud_image_inspector::error::Error::Limit(_))
+    ));
+}
+
+#[test]
+fn registry_fact_errors_preserve_other_facts_and_unknown_report_fields() {
+    let mut tree = windows_tree(false, false);
+    let mut software = HiveBuilder::default();
+    let cv = "Microsoft\\Windows NT\\CurrentVersion";
+    software.set(cv, "ProductName", 1, vec![0, 0xd8]);
+    software.sz(cv, "EditionID", "ServerDatacenter");
+    software.sz(cv, "CurrentBuildNumber", "20348");
+    software.dw(cv, "UBR", 2700);
+    tree.insert("Windows/System32/config/SOFTWARE", software.finish(false));
+    let mut system = HiveBuilder::default();
+    system.dw("Select", "Current", 2);
+    // The wrong registry type makes only this service's Start unknown.
+    system.sz("ControlSet002\\Services\\viostor", "Start", "automatic");
+    system.dw("ControlSet002\\Services\\netkvm", "Start", 3);
+    system.set(
+        "ControlSet002\\Services\\netkvm",
+        "ImagePath",
+        1,
+        vec![0, 0xd8],
+    );
+    system.dw("ControlSet002\\Control\\Power", "HibernateEnabled", 0);
+    tree.insert("Windows/System32/config/SYSTEM", system.finish(false));
+    let r = inspect_disk(dev(ntfs(&tree))).unwrap();
+    let w = r.windows.as_ref().unwrap();
+    assert_eq!(w.product_name, None);
+    assert_eq!(w.edition_id.as_deref(), Some("ServerDatacenter"));
+    assert_eq!(w.build, Some(20348));
+    assert_eq!(w.ubr, Some(2700));
+    assert_eq!(w.arch.as_deref(), Some("amd64"));
+    assert_eq!(w.viostor.present, Some(true));
+    assert_eq!(w.viostor.start, None);
+    assert_eq!(w.viostor.file, Some(true));
+    assert_eq!(w.netkvm.present, Some(true));
+    assert_eq!(w.netkvm.start, Some(3));
+    assert_eq!(w.netkvm.file, None);
+    assert_eq!(w.viosock.present, Some(false));
+    assert_eq!(w.hibernation, Some(false));
+    assert!(r.warnings.iter().any(|w| w.contains("ProductName")));
+    assert!(r.warnings.iter().any(|w| w.contains("Services\\netkvm")));
+    let json = report::json(&r, false).render();
+    assert!(json.contains("\"product_name\": null"));
+    assert!(json.contains("\"build\": 20348"));
+    assert!(json.contains("\"start\": null"));
+    assert!(json.contains("\"present\": false"));
+    let text = report::text(&r);
+    assert!(text.contains("os             unknown (Windows, amd64)"));
+    assert!(text.contains("build: 20348"));
+    assert!(text.contains("viostor: present: yes   Start: unknown   file: yes"));
+    assert!(text.contains("netkvm: present: yes   Start: 3   file: unknown"));
+    assert!(text.contains("viosock: present: no   Start: unknown   file: unknown"));
+}
+
+#[test]
 fn ntfs_resident_and_nonresident_files_directory_lookup_and_volume_dirty() {
     let tree = windows_tree(false, true);
     let fs = Ntfs::open(dev(ntfs(&tree))).unwrap();

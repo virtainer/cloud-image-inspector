@@ -1,11 +1,33 @@
 //! Read-only primary registry hives. Transaction logs are never replayed.
 use crate::bytes::{le16, le32, le64, slice};
 use crate::error::{corrupt, limit, unsupported, Error, Result};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 
 const MAX_HIVE: usize = 256 << 20;
 const MAX_VALUE: usize = 16 << 20;
 const MAX_ITEMS: usize = 65536;
+const MAX_SUBKEYS: usize = 131072;
+const MAX_INDEXES: usize = 8192;
+const MAX_KEYS: usize = 1 << 20;
+const MAX_CELL_SCANS: usize = 4 << 20;
+
+// Budgets belong to one lookup, never to the number of cells in the hive.
+#[derive(Default)]
+struct Lookup {
+    cell_scans: usize,
+    keys: usize,
+    indexes: usize,
+}
+struct Bin {
+    end: usize,
+    state: RefCell<BinState>,
+}
+struct BinState {
+    next: usize,
+    // One bit per eight-byte slot records validated allocated cell starts.
+    allocated: Vec<u8>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
@@ -33,7 +55,7 @@ impl Value {
 
 pub struct Hive {
     bytes: Vec<u8>,
-    cells: BTreeMap<u32, usize>,
+    bins: BTreeMap<u32, Bin>,
     root: u32,
     pub dirty: bool,
     minor: u32,
@@ -97,9 +119,8 @@ impl Hive {
             return corrupt("registry: bins size");
         }
         slice(&bytes, 4096, bins)?;
-        let mut cells = BTreeMap::new();
+        let mut ranges = BTreeMap::new();
         let mut bin = 0usize;
-        let mut count = 0;
         while bin < bins {
             let hdr = slice(&bytes, 4096 + bin, 32)?;
             if &hdr[..4] != b"hbin" || le32(hdr, 4)? as usize != bin {
@@ -109,51 +130,75 @@ impl Hive {
             if size < 4096 || !size.is_multiple_of(4096) || size > bins - bin {
                 return corrupt("registry: bin range");
             }
-            let mut pos = bin + 32;
-            while pos < bin + size {
-                count += 1;
-                if count > 1_000_000 {
-                    return limit("registry: cell budget");
-                }
-                let raw = le32(&bytes, 4096 + pos)? as i32;
-                let len = raw.unsigned_abs() as usize;
-                if len < 8 || !len.is_multiple_of(8) || len > bin + size - pos {
-                    return corrupt("registry: cell size");
-                }
-                if raw < 0 {
-                    cells.insert(pos as u32, len - 4);
-                }
-                pos += len;
-            }
+            ranges.insert(
+                bin as u32,
+                Bin {
+                    end: bin + size,
+                    state: RefCell::new(BinState {
+                        next: bin + 32,
+                        allocated: Vec::new(),
+                    }),
+                },
+            );
             bin += size;
         }
         let h = Self {
             bytes,
-            cells,
+            bins: ranges,
             root,
             dirty,
             minor,
         };
-        h.nk(root)?;
+        h.nk(root, &mut Lookup::default())?;
         Ok(h)
     }
-    fn cell(&self, offset: u32) -> Result<&[u8]> {
-        let len = self
-            .cells
-            .get(&offset)
-            .ok_or_else(|| Error::Corrupt("registry: reference is not an allocated cell".into()))?;
-        slice(&self.bytes, 4096 + offset as usize + 4, *len)
+    fn cell(&self, offset: u32, work: &mut Lookup) -> Result<&[u8]> {
+        let invalid = || Error::Corrupt("registry: reference is not an allocated cell".into());
+        let (&start, bin) = self.bins.range(..=offset).next_back().ok_or_else(invalid)?;
+        let pos = offset as usize;
+        if pos < start as usize + 32 || pos >= bin.end || !pos.is_multiple_of(8) {
+            return Err(invalid());
+        }
+        let mut state = bin.state.borrow_mut();
+        if state.allocated.is_empty() {
+            state.allocated.resize((bin.end - start as usize) / 64, 0);
+        }
+        // Scan only the prefix of this bin needed to prove the cell boundary.
+        // Cache boundaries so repeated path lookups do not rescan cell headers.
+        while state.next <= pos {
+            if work.cell_scans >= MAX_CELL_SCANS {
+                return limit("registry: lookup cell scan budget");
+            }
+            work.cell_scans += 1;
+            let next = state.next;
+            let raw = le32(&self.bytes, 4096 + next)? as i32;
+            let len = raw.unsigned_abs() as usize;
+            if len < 8 || !len.is_multiple_of(8) || len > bin.end - next {
+                return corrupt("registry: cell size");
+            }
+            if raw < 0 {
+                let slot = (next - start as usize) / 8;
+                state.allocated[slot / 8] |= 1 << (slot % 8);
+            }
+            state.next += len;
+        }
+        let slot = (pos - start as usize) / 8;
+        if state.allocated[slot / 8] & (1 << (slot % 8)) == 0 {
+            return Err(invalid());
+        }
+        let len = (le32(&self.bytes, 4096 + pos)? as i32).unsigned_abs() as usize;
+        slice(&self.bytes, 4096 + pos + 4, len - 4)
     }
-    fn nk(&self, offset: u32) -> Result<&[u8]> {
-        let c = self.cell(offset)?;
+    fn nk(&self, offset: u32, work: &mut Lookup) -> Result<&[u8]> {
+        let c = self.cell(offset, work)?;
         if slice(c, 0, 2)? != b"nk" {
             return corrupt("registry: expected nk");
         }
         slice(c, 0, 76)?;
         Ok(c)
     }
-    fn key_name(&self, offset: u32) -> Result<String> {
-        let c = self.nk(offset)?;
+    fn key_name(&self, offset: u32, work: &mut Lookup) -> Result<String> {
+        let c = self.nk(offset, work)?;
         name(
             slice(c, 76, le16(c, 72)? as usize)?,
             le16(c, 2)? & 0x20 != 0,
@@ -163,16 +208,18 @@ impl Hive {
         &self,
         offset: u32,
         depth: usize,
+        work: &mut Lookup,
         seen: &mut HashSet<u32>,
         out: &mut Vec<u32>,
     ) -> Result<()> {
-        if depth > 32 || seen.len() >= MAX_ITEMS || out.len() >= MAX_ITEMS {
+        if depth > 32 || work.indexes >= MAX_INDEXES {
             return limit("registry: subkey index budget");
         }
+        work.indexes += 1;
         if !seen.insert(offset) {
             return corrupt("registry: subkey index cycle/alias");
         }
-        let c = self.cell(offset)?;
+        let c = self.cell(offset, work)?;
         let sig = slice(c, 0, 2)?;
         let n = le16(c, 2)? as usize;
         let stride = match sig {
@@ -184,42 +231,45 @@ impl Hive {
         for i in 0..n {
             let child = le32(c, 4 + i * stride)?;
             if sig == b"ri" {
-                self.index(child, depth + 1, seen, out)?;
+                self.index(child, depth + 1, work, seen, out)?;
             } else {
-                if out.len() >= MAX_ITEMS {
+                if out.len() >= MAX_SUBKEYS || work.keys >= MAX_KEYS {
                     return limit("registry: subkeys");
                 }
-                self.nk(child)?;
+                work.keys += 1;
+                self.nk(child, work)?;
                 out.push(child);
             }
         }
         Ok(())
     }
     pub fn children(&self, key: u32) -> Result<Vec<(String, u32)>> {
-        let c = self.nk(key)?;
+        self.children_at(key, &mut Lookup::default())
+    }
+    fn children_at(&self, key: u32, work: &mut Lookup) -> Result<Vec<(String, u32)>> {
+        let c = self.nk(key, work)?;
         let n = le32(c, 20)? as usize;
-        if n > MAX_ITEMS {
+        if n > MAX_SUBKEYS {
             return limit("registry: subkeys");
         }
-        if le32(c, 24)? != 0 {
-            return unsupported("registry: persistent volatile subkeys");
-        }
+        // Volatile subkeys are memory-only. Their stale count and list pointer
+        // can survive in a saved hive, but must never be followed on disk.
         if n == 0 {
             return Ok(Vec::new());
         }
         let mut offsets = Vec::new();
-        self.index(le32(c, 28)?, 0, &mut HashSet::new(), &mut offsets)?;
+        self.index(le32(c, 28)?, 0, work, &mut HashSet::new(), &mut offsets)?;
         if offsets.len() != n {
             return corrupt("registry: subkey count");
         }
         let mut seen = HashSet::new();
         let mut result = Vec::new();
         for off in offsets {
-            let child = self.nk(off)?;
+            let child = self.nk(off, work)?;
             if le32(child, 16)? != key {
                 return corrupt("registry: subkey parent");
             }
-            let s = self.key_name(off)?;
+            let s = self.key_name(off, work)?;
             if !seen.insert(s.to_ascii_uppercase()) {
                 return corrupt("registry: duplicate subkey");
             }
@@ -228,7 +278,11 @@ impl Hive {
         Ok(result)
     }
     pub fn key(&self, path: &str) -> Result<Option<u32>> {
+        self.key_at(path, &mut Lookup::default())
+    }
+    fn key_at(&self, path: &str, work: &mut Lookup) -> Result<Option<u32>> {
         let mut key = self.root;
+        let mut seen = HashSet::from([key]);
         for (i, part) in path
             .split(['\\', '/'])
             .filter(|p| !p.is_empty())
@@ -240,9 +294,14 @@ impl Hive {
             if !part.is_ascii() {
                 return unsupported("registry: non-ASCII case-insensitive key lookup");
             }
-            let children = self.children(key)?;
+            let children = self.children_at(key, work)?;
             match children.iter().find(|(n, _)| n.eq_ignore_ascii_case(part)) {
-                Some((_, child)) => key = *child,
+                Some((_, child)) => {
+                    if !seen.insert(*child) {
+                        return corrupt("registry: key path cycle");
+                    }
+                    key = *child;
+                }
                 None if children.iter().any(|(n, _)| !n.is_ascii()) => {
                     return unsupported("registry: non-ASCII case-insensitive key lookup")
                 }
@@ -251,11 +310,11 @@ impl Hive {
         }
         Ok(Some(key))
     }
-    fn data(&self, offset: u32, len: usize) -> Result<Vec<u8>> {
+    fn data(&self, offset: u32, len: usize, work: &mut Lookup) -> Result<Vec<u8>> {
         if len > MAX_VALUE {
             return limit("registry: value size");
         }
-        let c = self.cell(offset)?;
+        let c = self.cell(offset, work)?;
         if len <= 16344 || self.minor < 5 {
             return Ok(slice(c, 0, len)?.to_vec());
         }
@@ -266,7 +325,7 @@ impl Hive {
         if count != len.div_ceil(16344) {
             return corrupt("registry: big data segment count");
         }
-        let list = self.cell(le32(c, 4)?)?;
+        let list = self.cell(le32(c, 4)?, work)?;
         slice(list, 0, count * 4)?;
         let mut out = Vec::with_capacity(len);
         let mut seen = HashSet::new();
@@ -276,21 +335,25 @@ impl Hive {
                 return corrupt("registry: duplicate big data segment");
             }
             let size = (len - out.len()).min(16344);
-            out.extend_from_slice(slice(self.cell(off)?, 0, size)?);
+            out.extend_from_slice(slice(self.cell(off, work)?, 0, size)?);
         }
         Ok(out)
     }
     pub fn value(&self, path: &str, wanted: &str) -> Result<Option<Value>> {
-        let Some(key) = self.key(path)? else {
+        let mut work = Lookup::default();
+        let Some(key) = self.key_at(path, &mut work)? else {
             return Ok(None);
         };
-        self.value_at(key, wanted)
+        self.value_from(key, wanted, &mut work)
     }
     pub fn value_at(&self, key: u32, wanted: &str) -> Result<Option<Value>> {
+        self.value_from(key, wanted, &mut Lookup::default())
+    }
+    fn value_from(&self, key: u32, wanted: &str, work: &mut Lookup) -> Result<Option<Value>> {
         if !wanted.is_ascii() {
             return unsupported("registry: non-ASCII value lookup");
         }
-        let nk = self.nk(key)?;
+        let nk = self.nk(key, work)?;
         let count = le32(nk, 36)? as usize;
         if count > MAX_ITEMS {
             return limit("registry: value count");
@@ -298,13 +361,13 @@ impl Hive {
         if count == 0 {
             return Ok(None);
         }
-        let list = self.cell(le32(nk, 40)?)?;
+        let list = self.cell(le32(nk, 40)?, work)?;
         slice(list, 0, count * 4)?;
         let mut found = None;
         let mut non_ascii = false;
         let mut seen = HashSet::new();
         for i in 0..count {
-            let c = self.cell(le32(list, i * 4)?)?;
+            let c = self.cell(le32(list, i * 4)?, work)?;
             if slice(c, 0, 2)? != b"vk" {
                 return corrupt("registry: expected vk");
             }
@@ -333,7 +396,7 @@ impl Hive {
         } else if len == 0 {
             Vec::new()
         } else {
-            self.data(le32(c, 8)?, len)?
+            self.data(le32(c, 8)?, len, work)?
         };
         let kind = le32(c, 12)?;
         Ok(Some(match kind {
