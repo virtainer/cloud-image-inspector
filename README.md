@@ -9,6 +9,8 @@ filesystems, and has **no dependencies** beyond the Rust standard library.
 
 ## Use cases
 
+- Inspect Windows images for edition/build, virtio driver services and files,
+  sysprep state, EMS, RTC, power settings and dirty markers.
 - Check which OS is inside a qcow2 or raw image without mounting it
   (`/etc/os-release`: ID, VERSION_ID, ID_LIKE, PRETTY_NAME, …).
 - Read os-release, cloud-init, sshd and sudo facts from a disk image: is
@@ -19,7 +21,7 @@ filesystems, and has **no dependencies** beyond the Rust standard library.
   or BIOS boot.
 - List the installed packages and versions in an image from its apk, dpkg,
   pacman or RPM database.
-- List, read or extract files from an image's ext4, XFS or btrfs filesystem
+- List, read or extract files from an image's ext4, XFS, btrfs, FAT or NTFS filesystem
   without libguestfs and without mounting it.
 
 ## Quick start
@@ -63,7 +65,8 @@ packages       apk (201 installed, /lib/apk/db/installed)
 | Container | qcow2 version, virtual size, cluster size, compression type, extended L2, snapshots |
 | Partitions | GPT/MBR (incl. extended), type, name, filesystem by superblock magic, label |
 | Boot method | UEFI (an EFI System Partition exists), BIOS (BIOS boot partition or MBR boot code) |
-| Root filesystem | the partition with an `os-release`; btrfs subvolume (default first); OSTree deployment |
+| Root filesystem | Linux: the partition with an `os-release`, btrfs subvolume (default first), OSTree deployment; Windows: an NTFS `Windows/System32/config` tree with a hive or kernel file |
+| OS family | `os_family`: `linux`, `windows` or `unknown`, derived from image contents |
 | OS | `/etc/os-release` or `/usr/lib/os-release`: ID, VERSION_ID, ID_LIKE, NAME, PRETTY_NAME, VERSION_CODENAME |
 | Login shells | bash present, `/bin/sh` symlink chain (canonical paths), `/etc/shells`, `useradd` default `SHELL` (also `/usr/etc`) |
 | Privilege tool | `sudo`, `doas`, `/etc/sudoers.d`, `/etc/doas.d`, `/etc/doas.conf` |
@@ -72,6 +75,13 @@ packages       apk (201 installed, /lib/apk/db/installed)
 | sshd | `sshd`, the PAM build `sshd.pam`, effective `UsePAM` (first value wins, `Include` expanded; `/usr/etc` fallback) |
 | First-boot agent | cloud-init and its version (package DB, else Python metadata), `datasource_list`; tiny-cloud; Ignition |
 | Packages | apk (`/lib/apk/db/installed`), dpkg (`Status: … installed` only), pacman (`local/*/desc`, honouring `DBPath`), RPM (SQLite with WAL, and ndb): every installed package and version, including several of one name |
+| Windows product | `windows.product_name`, `edition_id`, `installation_type`, integer `build` and `ubr`: SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion |
+| Windows architecture | `windows.arch`: the `ntoskrnl.exe` PE machine field (`amd64`, `x86`, `arm64`, `arm`; unknown machines are null) |
+| Windows drivers and agent | `windows.drivers.{viostor,netkvm,viosock,virtainer_agent}`: service-key `present`, integer `start`, executable `file`; the agent also has `version` from its PE fixed file-version resource |
+| Windows sysprep | `windows.sysprep.image_state`: SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State\\ImageState |
+| Windows EMS | `windows.ems.bootems`, `ems_enabled`: the EFI System Partition's `EFI/Microsoft/Boot/BCD` hive, including inherited elements |
+| Windows RTC and power | `windows.rtc_is_universal`, `hibernation`, `fast_startup`: selected SYSTEM ControlSet's `RealTimeIsUniversal`, `HibernateEnabled`, `HiberbootEnabled` |
+| Windows dirty markers | `windows.dirty.system_hive`, `software_hive`: validated base-block sequence mismatches; `ntfs_volume`: `$Volume` dirty flag |
 
 `--json` emits all of it; `--all-packages` adds the full package list.
 
@@ -84,12 +94,53 @@ packages       apk (201 installed, /lib/apk/db/installed)
 | ext2/3/4 | extent trees, ext2/3 block maps, 32/64-bit descriptors, `meta_bg`, inline data, htree dirs, 1 KiB–64 KiB blocks |
 | XFS | v4 and v5, AG-encoded addressing, local/extent/B-tree forks, `nrext64`, all five directory formats, remote symlinks |
 | btrfs | full chunk tree, B-trees of any height, subvolumes and default subvolume, inline/regular/prealloc extents, zlib/LZO/zstd |
+| FAT12/16/32 | BPB geometry, bounded cluster chains, fixed and cluster-based root directories, checksum-validated long names, nested directories and file ranges |
+| NTFS | boot sector, MFT bootstrap and fixups, attribute lists, resident/non-resident streams, signed data runs, sparse/uninitialized zeros, `$INDEX_ROOT`/`$INDEX_ALLOCATION` with bitmap and fixups, `$UpCase` |
+| Windows registry | primary regf 1.3–1.6, base checksum/sequence numbers, hive bins and allocated cells, nk/vk/lf/lh/li/ri, big data; SZ/EXPAND_SZ/MULTI_SZ/DWORD/QWORD/BINARY |
 | Decompressors | DEFLATE/zlib (RFC 1950/1951), zstd (RFC 8878, with XXH64), LZO1X and the btrfs LZO container |
 | Package DBs | apk, dpkg, pacman (text); SQLite (RPM `rpmdb.sqlite`, WAL applied); RPM ndb (`Packages.db`) |
 
 Not supported, and reported as such: LVM and LUKS volumes, multi-device btrfs,
 RAID0/10/5/6 btrfs profiles, qcow2 backing files and external data files
-(refused on purpose), encrypted qcow2, RPM Berkeley DB (EL7/EL8).
+(refused on purpose), encrypted qcow2, RPM Berkeley DB (EL7/EL8). Windows readers
+also refuse NTFS
+compression, EFS and reparse points (including WOF), inaccessible MFT bootstrap
+extensions, and FAT OEM short names or non-ASCII case folding. Unicode long
+names can be listed and matched exactly. These cases produce errors, never
+raw compressed bytes or a guessed absence.
+
+## Windows output
+
+`--json` adds top-level `os_family` and `windows`. A Windows report contains every
+Windows field in the table above; Linux `facts` is null. A Linux report keeps its
+existing `facts` and has `windows: null`. Unrecognized or ambiguous guest roots
+have `os_family: "unknown"`. Windows values that cannot be read or interpreted
+are **null**, including missing registry settings: OS defaults are not assumed.
+Confirmed missing service keys or files are `false`.
+
+SYSTEM service and power settings use only `Select\Current`'s ControlSet.
+`viostor`, `netkvm` and `viosock` use their service `ImagePath`, or their explicit
+`Windows/System32/drivers/<name>.sys` location when a readable service key has no
+ImagePath set. Missing or unreadable service keys leave file evidence null. The agent
+service is searched under `virtainer-guest-agent`, `virtainer_agent` and
+`virtainer_guest_agent`; multiple aliases are ambiguous. Its executable is
+located from the registered `ImagePath`. An absolute drive is mapped only when
+SOFTWARE's `SystemRoot` identifies that drive. Without a usable agent ImagePath,
+`file` and `version` are null: there is no assumed installation directory.
+`version` is the PE fixed file version, formatted `major.minor.build.revision`.
+
+EMS describes the boot manager's library `bootems` element (`16000020`) and the
+boot manager's default Windows OS loader's `ems` element (`260000b0`), selected
+by `23000003`. GUID object elements and inheritance lists are decoded from
+REG_SZ/REG_MULTI_SZ (or UTF-16 binary data). Inheritance is bounded and conflicts
+are unknown. Multiple EFI System Partitions, a dirty BCD hive, or an unreadable
+store leave EMS unknown. Missing elements stay null. These are stored settings;
+they do not prove that a guest has booted or that its serial console works.
+
+Hives and the NTFS journal are not replayed. A dirty hive's facts describe the
+stored snapshot and may omit recent changes; the separate dirty flag preserves
+that evidence. No guest executable is run. See [VERIFICATION.md](VERIFICATION.md)
+for synthetic coverage and the optional local Windows image check.
 
 ## Untrusted input
 
@@ -116,14 +167,20 @@ cloud-image-inspector stat   [--partition N] [--subvol ID] IMAGE PATH
 cloud-image-inspector export [--partition N] [--subvol ID] IMAGE PATH DEST
 ```
 
-File commands use the detected root filesystem unless `--partition` is given.
+File commands use the detected Linux or Windows root filesystem unless
+`--partition` is given. Ambiguous roots require `--partition N`, including
+images containing two Windows installations. Windows/FAT paths accept `/` or
+`\` separators; quote backslashes in the shell. Use `--partition N` to read an
+EFI or seed volume.
+An explicit `--subvol ID` can select a Btrfs data filesystem without an OS root.
+If multiple Btrfs filesystems are present, also specify `--partition N`.
 `CII_STATS=1` prints how often each on-disk format path ran.
 
 ## Verification
 
 Run in containers (`tools/Containerfile`, `tools/Containerfile.guestfs`); see
 `VERIFICATION.md` for the full record; `tools/verify-all.sh` reruns all of it.
-Summary: 13 real cloud images (Alpine ×3, Debian, Ubuntu, Fedora, Fedora CoreOS,
+Linux/container summary from the recorded 2026-10-05 run: 13 real cloud images (Alpine ×3, Debian, Ubuntu, Fedora, Fedora CoreOS,
 AlmaLinux, Rocky, RHEL 9.7, RHEL 10.1, openSUSE, Arch) and 35 synthetic images,
 every file identical to what the kernel or the source tree holds, every fact
 confirmed, every package list identical to the distribution's own package manager
@@ -150,6 +207,11 @@ confirmed, every package list identical to the distribution's own package manage
 - **Robustness** (`tests/fuzz_images.rs`, `tests/compress.rs`): corrupted images
   (on the qcow2 file and on the guest disk, aimed at the blocks a clean run reads)
   and corrupted compressed streams must produce errors, never panics or hangs.
+
+Windows and file-command coverage is self-contained in `tests/windows.rs`: 33
+tests and 1,000 corrupted synthetic FAT/NTFS/regf/PE inputs. One additional Windows test requires
+a local image and is ignored by default. No real Windows image was verified in
+this checkout.
 
 ## Building
 

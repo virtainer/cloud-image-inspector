@@ -1,6 +1,6 @@
 # Verification record
 
-All results below come from one clean run of `tools/verify-all.sh` on 2026-10-05:
+The Linux/container results in sections 1–7 come from one clean run of `tools/verify-all.sh` on 2026-10-05:
 
 - **Clean start:** both containers were rebuilt with `--no-cache`, and `target/` and every generated fixture were deleted.
 - **One build:** everything ran against a single release build, `target/release/cloud-image-inspector`, SHA-256 `62481ee65929d0696ba224e5be17db0f6a17683b87a11f00304afb3bdb7ed197`.
@@ -208,3 +208,121 @@ adds 4,500 corrupted and truncated compressed streams.
   reported as unsupported, not read.
 - Images are x86_64. Non-x86 images use the same formats, but no aarch64 image
   was tested.
+
+## 8. Windows readers and probe (2026-10-10)
+
+This checkout was checked offline with Cargo commands run sequentially:
+
+```sh
+CARGO_NET_OFFLINE=true cargo build
+CARGO_NET_OFFLINE=true cargo test
+CARGO_NET_OFFLINE=true cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+```
+
+The Windows suite (`tests/windows.rs`, `tests/windows_fixtures/mod.rs`) builds its
+fixtures in Rust using only std. No binary Windows hives, executables or images
+are committed. The CLI test writes a temporary synthetic raw disk, then checks
+text/JSON inspection, an NTFS file read, and an explicit FAT ESP listing.
+
+| Check | Evidence |
+|---|---|
+| FAT12/16/32 | real cluster-count thresholds, long-name sequences/checksums, nested EFI paths, empty and multi-cluster files, range reads, cycles and invalid geometry |
+| NTFS | resident and non-resident files, split DATA attributes, non-resident attribute lists, fragmented MFT bootstrap, signed negative runs, sparse runs and uninitialized zeros, allocation indexes/fixups/bitmap, index cycles and short corrupt child entries, stale references and `$UpCase` Unicode lookup |
+| Unsupported NTFS features | compressed, encrypted and reparse-point data fail explicitly rather than being returned as file contents |
+| Registry | all four subkey-list forms, case-insensitive ASCII keys/values, inline and external data, 35 KB big data across bins, every supported value type, dirty sequence numbers, invalid/free cell references, checksums, cycles, bad UTF-16 and allocation/count limits |
+| Windows facts | every contract field in a complete NTFS + FAT ESP report, Select\Current selecting ControlSet002 instead of a conflicting ControlSet001, agent PE version, ARM64 machine type, dirty volume/hive markers, missing vs unreadable files and settings, unmappable service paths, multiple roots/ESPs |
+| BCD | bootmgr `16000020`, default-object `23000003`, OS-loader `260000b0`, typed GUID elements, inherited settings including shared ancestors, cycles, dirty store and preservation of readable bootems when the loader is corrupt |
+| Corruption corpus | 250 deterministic mutations/truncations each of FAT12, NTFS, regf BCD and PE fixtures: 1,000 cases through parser/probe/report paths; no panic; a separate worker deadline bounds the entire test to 45 seconds |
+
+Result: **33 Windows/file-command tests passed**, with **1 local-image test ignored**.
+The complete Cargo run reports **44 passed, 1 ignored**. Four pre-existing
+integration tests return early because compressor vectors, Linux filesystem
+fixtures and SQLite fixtures are absent; the other 40 tests execute their
+checks. The historical real-image/kernel/vector verification above was **not
+rerun**. There are still no Cargo dependencies.
+
+### Edge cases covered by regression tests
+
+- Sparse NTFS streams with flag `0x8000` and allocation unit 4 return physical data
+  and zero-filled holes through whole-file and range reads; adding the actual
+  compression flag produces an explicit unsupported error.
+- On a volume with 4 KiB sectors, 64 KiB clusters and 4 KiB index blocks, index
+  VCNs are counted in 512-byte units, so the child at VCN 8 is read from offset
+  4096. Torn fixups and mismatched child VCNs are rejected.
+- FAT entries resolve by their long name and by their 8.3 alias to the same file,
+  without listing the file twice.
+- Two separate Windows partitions with different contents: inspection reports an
+  unknown family and no root; automatic `cat`, `ls`, `stat` and `export` refuse to
+  pick a root and create no export destination. Explicit partition selection
+  reads and exports the selected installation.
+- `%SystemRoot%`, `%WINDIR%` and `\SystemRoot` prefixes expand, but a remaining
+  unresolved variable such as `%AGENT_DIR%` makes executable file/version evidence
+  null, even when a directory literally named `%AGENT_DIR%` exists.
+- An unreadable SYSTEM hive, unavailable `Select\Current`, or corrupt service
+  subkey list leaves every driver's file evidence null. A readable service key
+  with no ImagePath uses the conventional path and distinguishes an existing file
+  from a missing one.
+- A single-device Btrfs image with files in subvolumes 5 and 256 and no OS marker
+  has no OS root, while explicit `--subvol` reads either subvolume; two Btrfs
+  partitions require `--partition`.
+
+Parser budgets include: 131,072 FAT chain clusters, 64 MiB of directory data and
+100,000 directory entries; 64 KiB NTFS records, 1,024 attributes, 65,536 runs,
+4 MiB attribute lists, 8,192 index nodes and depth 32; 256 MiB hives, one million
+cells, 65,536 key/value-list items, 16 MiB values and depth 32 for registry
+indexes; PE resources bounded to 16 MiB, 1,024 directory nodes, depth 3; BCD
+inheritance bounded to depth 16 and 256 visits. Whole-file and range limits
+continue to apply. Compressed/encrypted NTFS streams, reparse points (including
+WOF), inaccessible MFT bootstrap extensions and unsupported FAT codepages/case
+folding produce errors.
+
+### Local-only Windows image check
+
+Windows images cannot be redistributed. To run the explicitly ignored smoke
+check against a raw or qcow2 image already on your machine:
+
+```sh
+CII_WINDOWS_IMAGE=/absolute/path/windows.qcow2 CARGO_NET_OFFLINE=true \
+  cargo test --test windows local_windows_image -- --ignored --nocapture
+```
+
+The check fails if the variable is missing, the image cannot be read, Windows
+is not recognized, or product/build/architecture cannot be collected. It prints
+the complete JSON report. **No real Windows image was supplied or verified for
+this change.** This smoke check establishes readability only; it is not an
+independent truth oracle for every field.
+
+For acceptance on a disposable booted copy, compare the report with Windows'
+own registry queries for SOFTWARE CurrentVersion/Setup State and the ControlSet
+identified by `HKLM\SYSTEM\Select\Current`; query service Start and ImagePath
+and check the referenced files and their file versions. Compare architecture
+with the kernel PE machine type, and the selected ESP's BCD with
+`bcdedit /store <ESP>:\EFI\Microsoft\Boot\BCD /enum all /v`. Query
+`fsutil dirty query <Windows-volume>:` for the volume marker. Read raw hive
+sequence numbers from the original offline image before booting: booting can
+recover a dirty hive or clear a dirty volume. Record the image version and these
+comparisons locally; do not add licensed images or extracted Windows files.
+
+### Known interpretation boundaries
+
+- The contract does not fix the installed agent service name/directory or a
+  version source. The implemented aliases are documented in README. A readable
+  service ImagePath provides file evidence; without one, file/version are null.
+  PE fixed file version is used when present; no package-version guess is made.
+- EMS is the boot manager plus its default Windows loader. Missing elements,
+  conflicting inherited settings, multiple ESPs or a dirty BCD store remain
+  null. No firmware boot selection or runtime EMS behavior is inferred.
+- Only stored registry/NTFS state is read. Dirty hives retain their dirty markers
+  and a warning; transaction logs and the NTFS journal are not replayed. Missing
+  RTC/hibernation/Fast Startup values are null, even if Windows would apply a
+  default.
+- The Windows tree currently must be under `Windows/System32`; installations
+  using a renamed Windows directory, BitLocker, dynamic/LDM volumes or storage
+  spanning multiple disks are not supported.
+
+Format references: [Microsoft PE/COFF](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format),
+[Microsoft BCD element semantics](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bcd/bcdlibraryelementtypes),
+[BCD numeric element definitions](https://github.com/sysprogs/BazisLib/blob/master/bzshlp/Win32/BCD.h),
+[Linux NTFS structure definitions](https://github.com/torvalds/linux/blob/master/fs/ntfs3/ntfs.h),
+and [regf format documentation](https://github.com/libyal/libregf/blob/main/documentation/Windows%20NT%20Registry%20File%20%28REGF%29%20format.asciidoc).
