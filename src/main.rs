@@ -16,6 +16,7 @@ usage:
   cloud-image-inspector cat    [--partition N] [--subvol ID] IMAGE PATH
   cloud-image-inspector stat   [--partition N] [--subvol ID] IMAGE PATH
   cloud-image-inspector export [--partition N] [--subvol ID] IMAGE PATH DEST
+  cloud-image-inspector --help | --version
 
 IMAGE is qcow2 (v2/v3; zlib or zstd clusters) or raw. Filesystems: ext2/3/4, XFS,
 btrfs, FAT12/16/32, NTFS. Without --partition, file commands use the detected root filesystem.";
@@ -55,7 +56,14 @@ fn parse() -> Result<Opts, String> {
                         .ok_or("--subvol needs a subvolume id")?,
                 )
             }
-            "-h" | "--help" => return Err(String::new()),
+            "-h" | "--help" => {
+                println!("{USAGE}");
+                std::process::exit(0);
+            }
+            "-V" | "--version" => {
+                println!("cloud-image-inspector {}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
             s if s.starts_with("--") => return Err(format!("unknown option {s}")),
             _ => o.args.push(a),
         }

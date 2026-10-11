@@ -173,6 +173,7 @@ cloud-image-inspector ls     [--partition N] [--subvol ID] IMAGE PATH
 cloud-image-inspector cat    [--partition N] [--subvol ID] IMAGE PATH
 cloud-image-inspector stat   [--partition N] [--subvol ID] IMAGE PATH
 cloud-image-inspector export [--partition N] [--subvol ID] IMAGE PATH DEST
+cloud-image-inspector --help | --version
 ```
 
 File commands use the detected Linux or Windows root filesystem unless
