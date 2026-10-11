@@ -32,6 +32,10 @@ cloud-image-inspector disk.qcow2           # human-readable report
 cloud-image-inspector --json disk.qcow2    # machine-readable report
 ```
 
+A static x86_64 Linux binary is attached to each
+[release](https://github.com/virtainer/cloud-image-inspector/releases), with a
+`SHA256SUMS` file to check it against.
+
 All commands and options are under [Usage](#usage); to build in a container,
 see [Building](#building).
 
